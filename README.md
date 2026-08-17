@@ -5,6 +5,7 @@
 <div align="center">
 
 [![CI](https://github.com/francescoVaglienti/vibemin/actions/workflows/ci.yml/badge.svg)](https://github.com/francescoVaglienti/vibemin/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/francescoVaglienti/vibemin?color=6D5EF5)](https://github.com/francescoVaglienti/vibemin/releases/latest)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Zero runtime dependencies](https://img.shields.io/badge/runtime_dependencies-0-6D5EF5)](pyproject.toml)
 [![MIT](https://img.shields.io/badge/license-MIT-0F766E)](LICENSE)
@@ -44,6 +45,20 @@ Vibemin runs locally in a disposable Git worktree. It never sends your code anyw
 and it only updates the real checkout after the result has passed every required check.
 
 ## Quick start
+
+### No Python required
+
+Install the checksummed standalone binary on macOS or Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-binary.sh | sh
+```
+
+Self-contained executables are published for macOS, Linux, and Windows on the
+[Releases page](https://github.com/francescoVaglienti/vibemin/releases/latest). Git is the
+only runtime prerequisite.
+
+### Python package
 
 Install directly from GitHub with [`uv`](https://docs.astral.sh/uv/):
 
@@ -269,7 +284,12 @@ uv run --with ruff ruff check .
 uv run --with ruff ruff format --check .
 ```
 
-Vibemin targets Python 3.10+ and has no runtime dependencies.
+The suite favors integration evidence over internal implementation tests: it exercises real
+Git repositories, runs release executables end to end, and makes Vibemin minimize its own
+source while its focused test suite acts as the oracle.
+
+Source installs target Python 3.10+ and have no runtime dependencies. Release executables
+bundle their own Python runtime.
 
 ## License
 

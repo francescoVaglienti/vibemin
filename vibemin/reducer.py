@@ -64,6 +64,12 @@ class MinimizeResult:
 ProgressCallback = Callable[[Attempt], None]
 
 
+def _shell_argv(command: str) -> list[str]:
+    if os.name == "nt":
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", command]
+    return ["/bin/sh", "-c", command]
+
+
 def _materialize(root: Path, changes: Iterable[FileChange], selected: set[int]) -> None:
     for change in changes:
         write_snapshot(root, change.path, change.render(selected))
@@ -77,7 +83,7 @@ def _run_checks(
     for command in commands:
         try:
             process = subprocess.run(
-                ["/bin/sh", "-c", command],
+                _shell_argv(command),
                 cwd=root,
                 env=environment,
                 stdout=subprocess.PIPE,
@@ -105,7 +111,7 @@ def _capture_preserved_outputs(
     for command in commands:
         try:
             process = subprocess.run(
-                ["/bin/sh", "-c", command],
+                _shell_argv(command),
                 cwd=root,
                 env=environment,
                 capture_output=True,

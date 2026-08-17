@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  binary:
+    name: ${{ matrix.asset }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            asset: vibemin-linux-x86_64
+            binary: vibemin
+          - runner: ubuntu-22.04-arm
+            asset: vibemin-linux-aarch64
+            binary: vibemin
+          - runner: macos-15-intel
+            asset: vibemin-macos-x86_64
+            binary: vibemin
+          - runner: macos-15
+            asset: vibemin-macos-aarch64
+            binary: vibemin
+          - runner: windows-latest
+            asset: vibemin-windows-x86_64
+            binary: vibemin.exe
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Build self-contained executable
+        env:
+          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller
+        run: >-
+          uv run --with pyinstaller==6.21.0 pyinstaller
+          --clean --noconfirm --onefile --name vibemin vibemin/__main__.py
+
+      - name: Run end-to-end tests against executable
+        env:
+          VIBEMIN_EXECUTABLE: ${{ github.workspace }}/dist/${{ matrix.binary }}
+        run: uv run --with pytest pytest -q tests/test_end_to_end.py -m "not selfhost"
+
+      - name: Package executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path "dist/${{ matrix.binary }}" -DestinationPath "release/${{ matrix.asset }}.zip"
+
+      - name: Upload executable
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.asset }}
+          path: release/${{ matrix.asset }}.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  python-package:
+    name: Python package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Verify tag and build package
+        run: |
+          test "v$(uv run python -c 'import vibemin; print(vibemin.__version__)')" = "$GITHUB_REF_NAME"
+          uv build
+
+      - name: Smoke-test wheel in an isolated tool environment
+        run: |
+          tool_root="$(mktemp -d)"
+          UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin" uv tool install dist/*.whl
+          test "$("$tool_root/bin/vibemin" --version)" = "vibemin ${GITHUB_REF_NAME#v}"
+
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-package
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  github-release:
+    name: GitHub release
+    needs: [binary, python-package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/* \
+              --verify-tag --generate-notes --title "Vibemin $GITHUB_REF_NAME"
+          fi
+
+  pypi:
+    name: PyPI
+    if: vars.PUBLISH_TO_PYPI == 'true'
+    needs: [python-package]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/vibemin/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Python distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-package
+          path: dist
+
+      - name: Publish with PyPI trusted publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

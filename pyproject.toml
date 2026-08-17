@@ -1,10 +1,25 @@
 [project]
 name = "vibemin"
-version = "0.2.0"
+version = "1.2.0"
 description = "Test-guided minimization of AI-generated Git changes"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+authors = [{ name = "Francesco Vaglienti", email = "francesco@vaglienti.ai" }]
+keywords = ["ai", "cli", "delta-debugging", "git", "testing"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = []
 
 [project.urls]
@@ -23,6 +38,7 @@ include = ["vibemin*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["selfhost: runs Vibemin against its own source and focused test suite"]
 
 [tool.ruff]
 line-length = 100

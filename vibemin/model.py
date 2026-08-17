@@ -84,10 +84,15 @@ class FileChange:
             self._empty_presence_unit = self._unit("change empty-file presence")
             return
 
-        matcher = difflib.SequenceMatcher(None, before_lines, after_lines, autojunk=False)
+        matcher = difflib.SequenceMatcher(
+            None,
+            [self._comparison_line(line) for line in before_lines],
+            [self._comparison_line(line) for line in after_lines],
+            autojunk=False,
+        )
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == "equal":
-                self._pieces.extend(_Piece(line, None) for line in before_lines[i1:i2])
+                self._pieces.extend(_Piece(line, None) for line in after_lines[j1:j2])
                 continue
             if tag in {"delete", "replace"}:
                 for line in before_lines[i1:i2]:
@@ -104,6 +109,10 @@ class FileChange:
     @staticmethod
     def _is_binary(content: bytes | None) -> bool:
         return content is not None and b"\0" in content[:8192]
+
+    @staticmethod
+    def _comparison_line(line: bytes) -> bytes:
+        return line[:-2] + b"\n" if line.endswith(b"\r\n") else line
 
     def render(self, selected: set[int]) -> Snapshot:
         """Render the file for the supplied set of retained change units."""

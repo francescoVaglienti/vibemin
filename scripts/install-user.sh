@@ -50,8 +50,6 @@ USER_ROOT=${VIBEMIN_USER_HOME:-"$HOME"}
 SHARED_SKILL_DIR=${VIBEMIN_AGENT_SKILLS_DIR:-"$USER_ROOT/.agents/skills/vibemin"}
 CLAUDE_ROOT=${CLAUDE_CONFIG_DIR:-"$USER_ROOT/.claude"}
 CLAUDE_SKILL_DIR="$CLAUDE_ROOT/skills/vibemin"
-MAN_ROOT=${XDG_DATA_HOME:-"$USER_ROOT/.local/share"}
-MAN_DIR="$MAN_ROOT/man/man1"
 
 agent_is_installed() {
     agent_command=$1
@@ -213,8 +211,3 @@ case "$SELECTED_AGENT" in
         printf 'Installed for %s: %s\n' "$SELECTED_AGENT" "$SHARED_SKILL_DIR/SKILL.md"
         ;;
 esac
-
-mkdir -p "$MAN_DIR"
-install -m 0644 "$PROJECT_DIR/docs/vibemin.1" "$MAN_DIR/vibemin.1"
-printf 'Installed man page: %s\n' "$MAN_DIR/vibemin.1"
-printf 'If man cannot find it, run: man -M %s/man vibemin\n' "$MAN_ROOT"

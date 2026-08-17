@@ -54,7 +54,7 @@
       <g transform="translate(114)">
         <rect width="151" height="28" rx="14" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".1"/>
         <circle cx="15" cy="14" r="3" fill="#4B95FF"/>
-        <text x="25" y="18" fill="#D8D6E5">ZERO RUNTIME DEPS</text>
+        <text x="25" y="18" fill="#D8D6E5">NO PYTHON REQUIRED</text>
       </g>
       <g transform="translate(275)">
         <rect width="118" height="28" rx="14" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".1"/>

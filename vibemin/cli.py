@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from vibemin import __version__
 from vibemin.git import GitError
 from vibemin.reducer import Attempt, VerificationError, minimize
 
@@ -15,6 +16,7 @@ def _parser() -> argparse.ArgumentParser:
         prog="vibemin",
         description="Remove unnecessary lines from an AI-generated Git diff, guarded by tests.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "paths",
         nargs="*",
@@ -159,11 +161,11 @@ def main(argv: list[str] | None = None) -> int:
     if result.changed_files:
         print("Files simplified:")
         for path in result.changed_files:
-            print(f"  {path}")
+            print(f"  {path.as_posix()}")
     else:
         print("The patch was already minimal under these checks.")
     if result.protected_files:
         print("Protected as fixed context:")
         for path, kind in result.protected_files:
-            print(f"  {path} ({kind.value})")
+            print(f"  {path.as_posix()} ({kind.value})")
     return 0
