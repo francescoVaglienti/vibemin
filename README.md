@@ -38,7 +38,8 @@ Run it in the Git repository containing the AI changes:
 vibemin \
   --check "npm test -- --run" \
   --check "npm run lint" \
-  --check "npm run typecheck"
+  --check "npm run typecheck" \
+  --final-check "npm ci --ignore-scripts --dry-run"
 ```
 
 Or minimize only a portion of the diff:
@@ -48,6 +49,19 @@ vibemin src/new-feature \
   --check "npm test -- --run tests/new-feature.test.ts" \
   --check "npm run lint"
 ```
+
+Minimize an entire feature branch, including changes already committed on it, from the point
+where it diverged from the target branch:
+
+```sh
+vibemin --feature-base origin/main \
+  --check "pytest -q" \
+  --check "npm run typecheck"
+```
+
+The result is written as working-tree changes on top of the current feature, ready to review
+and amend or squash. `--base REF` remains available for an exact baseline; `--feature-base`
+uses `git merge-base HEAD REF` so unrelated target-branch history is not included.
 
 Preview the result without changing the checkout:
 
@@ -73,6 +87,42 @@ first verified candidate establishes the snapshot; every smaller candidate must 
 the exact same stdout and stderr. This can preserve collected test IDs, an OpenAPI schema,
 or another observable contract that an ordinary pass/fail check would not protect.
 
+## Safe defaults
+
+Ordinary green tests do not prove that tests themselves, dependency metadata, or rendered
+visuals survived reduction. Vibemin therefore keeps these changes as fixed context by default:
+
+- tests, specs, and snapshots;
+- dependency manifests and generated lockfiles;
+- stylesheets, fonts, icons, and raster/vector images.
+
+The result reports every protected file. Unlock a category only with its matching oracle:
+
+```sh
+# Consolidating tests requires mutation testing or an equivalent strength check.
+vibemin tests --reduce-tests \
+  --check "pytest -q" \
+  --test-strength-check "./scripts/check-mutation-baseline"
+
+# A visual file requires a deterministic screenshot/DOM snapshot hash.
+vibemin web/src --allow-visual-changes \
+  --check "npm run build" \
+  --preserve-output "./scripts/render-reference-screenshot --hash"
+
+# Dependency files require consistency validation on every candidate.
+vibemin pyproject.toml poetry.lock --allow-dependency-changes \
+  --check "pytest -q" \
+  --dependency-check "poetry check --lock"
+```
+
+Changed TypeScript requires a direct `tsc`/typecheck command or a package script that invokes
+one. Auth, tenant, permission, token, cookie, session, or secret-related changes require an
+explicit `--security-check`. Use `--final-check` for expensive clean-install, dependency-audit,
+or broad integration validation that only needs to run once on the chosen result.
+
+These rules prevent the two most misleading reductions: deleting assertions until tests pass
+and deleting CSS until a non-visual production build passes.
+
 ## Minimizing tests safely
 
 Never minimize tests with a passing test suite as the only check: deleting a test makes
@@ -83,6 +133,7 @@ When simplifying test bodies without merging test cases, preserve the collected 
 
 ```sh
 vibemin tests \
+  --reduce-tests \
   --check "pytest -q" \
   --preserve-output "pytest --collect-only -q | sed '/collected in/d'"
 ```
@@ -92,8 +143,9 @@ Use the same mutation score or killed-mutant set as the constraint instead:
 
 ```sh
 vibemin tests \
+  --reduce-tests \
   --check "pytest -q" \
-  --check "./scripts/check-mutation-baseline"
+  --test-strength-check "./scripts/check-mutation-baseline"
 ```
 
 Collection preservation prevents accidental disappearance; only mutation testing protects
@@ -113,11 +165,16 @@ shortest, and weak tests can permit incorrect removal.
 ## Guardrails and limitations
 
 - Staged changes are rejected so the index and working tree cannot diverge unexpectedly.
+- Tests, dependency metadata, and visual files are protected unless explicitly unlocked with
+  an appropriate oracle.
+- TypeScript is not reduced without typechecking, and security-sensitive code is not reduced
+  without a security-specific check.
 - Symlinks and changed directories/submodules are currently rejected.
 - Ignored local files such as `.env`, `.venv`, and `node_modules` are not copied into the
   temporary worktree. Prefer checks whose dependencies are globally available, or commands
   that use a shared package-manager cache.
-- Use `--base <commit>` to compare against something other than `HEAD`.
+- Use `--base <ref>` for an exact baseline or `--feature-base <target-ref>` for the complete
+  current feature since its merge-base with the target.
 - Use `--max-attempts` and `--timeout` to bound cost.
 
 Always review the final diff. `vibemin` knows only what the checks prove.

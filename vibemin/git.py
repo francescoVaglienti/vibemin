@@ -7,6 +7,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
 
@@ -42,6 +43,17 @@ def assert_no_staged_changes(root: Path) -> None:
 
 def resolve_base(root: Path, base: str) -> str:
     return _run(root, "rev-parse", "--verify", f"{base}^{{commit}}").stdout.decode().strip()
+
+
+def resolve_feature_base(root: Path, base_ref: str) -> str:
+    """Return the shared ancestor so only the current feature's changes are reduced."""
+
+    base = resolve_base(root, base_ref)
+    result = _run(root, "merge-base", "HEAD", base)
+    commit = result.stdout.decode().strip()
+    if not commit:
+        raise GitError(f"HEAD and {base_ref} have no merge base")
+    return commit
 
 
 def _nul_paths(output: bytes) -> list[Path]:
@@ -81,15 +93,19 @@ def current_snapshot(root: Path, path: Path) -> Snapshot:
 
 
 def load_changes(
-    root: Path, base: str, selected_paths: tuple[Path, ...]
+    root: Path,
+    base: str,
+    selected_paths: tuple[Path, ...],
+    protected: Callable[[Path], bool] | None = None,
 ) -> tuple[list[FileChange], set[int]]:
     changes: list[FileChange] = []
     selected_units: set[int] = set()
     next_unit_id = 0
     for path in changed_paths(root, base):
-        reducible = not selected_paths or any(
+        in_scope = not selected_paths or any(
             path == selected or selected in path.parents for selected in selected_paths
         )
+        reducible = in_scope and not (protected and protected(path))
         change = FileChange(
             path,
             _base_snapshot(root, base, path),

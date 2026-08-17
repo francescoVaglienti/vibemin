@@ -19,9 +19,17 @@ from vibemin.git import (
     find_root,
     load_changes,
     resolve_base,
+    resolve_feature_base,
     write_snapshot,
 )
 from vibemin.model import FileChange
+from vibemin.policy import (
+    ProtectedKind,
+    has_typecheck,
+    has_typescript,
+    is_security_sensitive,
+    protected_kind,
+)
 
 
 class VerificationError(RuntimeError):
@@ -46,6 +54,7 @@ class MinimizeResult:
     attempts: int
     applied: bool
     changed_files: tuple[Path, ...]
+    protected_files: tuple[tuple[Path, ProtectedKind], ...] = ()
 
     @property
     def removed_units(self) -> int:
@@ -68,11 +77,9 @@ def _run_checks(
     for command in commands:
         try:
             process = subprocess.run(
-                command,
+                ["/bin/sh", "-c", command],
                 cwd=root,
                 env=environment,
-                shell=True,
-                executable="/bin/sh",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -98,11 +105,9 @@ def _capture_preserved_outputs(
     for command in commands:
         try:
             process = subprocess.run(
-                command,
+                ["/bin/sh", "-c", command],
                 cwd=root,
                 env=environment,
-                shell=True,
-                executable="/bin/sh",
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -246,8 +251,17 @@ def minimize(
     *,
     root: Path | None = None,
     base: str = "HEAD",
+    feature_base: str | None = None,
     paths: Iterable[Path] = (),
     preserve_outputs: Iterable[str] = (),
+    final_checks: Iterable[str] = (),
+    security_checks: Iterable[str] = (),
+    test_strength_checks: Iterable[str] = (),
+    dependency_checks: Iterable[str] = (),
+    allow_test_changes: bool = False,
+    allow_dependency_changes: bool = False,
+    allow_visual_changes: bool = False,
+    allow_untyped_typescript: bool = False,
     timeout: float = 300,
     max_attempts: int = 500,
     apply: bool = True,
@@ -256,6 +270,10 @@ def minimize(
     """Minimize current changes while every verification command remains green."""
     commands_tuple = tuple(commands)
     preserve_commands = tuple(preserve_outputs)
+    final_commands = tuple(final_checks)
+    security_commands = tuple(security_checks)
+    test_strength_commands = tuple(test_strength_checks)
+    dependency_commands = tuple(dependency_checks)
     if not commands_tuple:
         raise ValueError("at least one verification command is required")
     if timeout <= 0:
@@ -265,7 +283,11 @@ def minimize(
     invocation_root = (root or Path.cwd()).resolve()
     repo_root = find_root(invocation_root)
     assert_no_staged_changes(repo_root)
-    base_commit = resolve_base(repo_root, base)
+    base_commit = (
+        resolve_feature_base(repo_root, feature_base)
+        if feature_base is not None
+        else resolve_base(repo_root, base)
+    )
     selected_paths_list: list[Path] = []
     for supplied_path in paths:
         absolute = Path(supplied_path)
@@ -276,11 +298,64 @@ def minimize(
         except ValueError as error:
             raise GitError(f"selected path is outside the repository: {supplied_path}") from error
     selected_paths = tuple(selected_paths_list)
-    changes, all_units = load_changes(repo_root, base_commit, selected_paths)
+    kinds_to_protect = {
+        kind
+        for kind, allowed in (
+            (ProtectedKind.TEST, allow_test_changes),
+            (ProtectedKind.DEPENDENCY, allow_dependency_changes),
+            (ProtectedKind.VISUAL, allow_visual_changes),
+        )
+        if not allowed
+    }
+    if allow_test_changes and not (test_strength_commands or preserve_commands):
+        raise ValueError("minimizing tests requires --test-strength-check or --preserve-output")
+    if allow_dependency_changes and not dependency_commands:
+        raise ValueError("minimizing dependency files requires --dependency-check")
+    if allow_visual_changes and not preserve_commands:
+        raise ValueError("minimizing visual files requires deterministic --preserve-output output")
+
+    changes, all_units = load_changes(
+        repo_root,
+        base_commit,
+        selected_paths,
+        protected=lambda path: protected_kind(path) in kinds_to_protect,
+    )
     if not changes:
         raise GitError("there are no tracked or untracked changes to minimize")
+    protected_files = tuple(
+        (change.path, kind)
+        for change in changes
+        if (kind := protected_kind(change.path)) in kinds_to_protect
+    )
     if not all_units:
+        if protected_files:
+            paths_text = ", ".join(str(path) for path, _kind in protected_files)
+            raise GitError(
+                "the selected paths contain only protected changes: "
+                f"{paths_text}; use the matching --allow-*-changes option with its guard"
+            )
         raise GitError("the selected paths contain no minimizable changes")
+
+    reducible_paths = [change.path for change in changes if change.units]
+    all_candidate_commands = (
+        commands_tuple + security_commands + test_strength_commands + dependency_commands
+    )
+    if has_typescript(reducible_paths) and not allow_untyped_typescript:
+        if not has_typecheck(all_candidate_commands, repo_root):
+            raise ValueError(
+                "TypeScript changes require a tsc/typecheck command; "
+                "use --allow-untyped-typescript only when this is intentional"
+            )
+    sensitive = [
+        change.path
+        for change in changes
+        if change.units and is_security_sensitive(change.path, change.after.content)
+    ]
+    if sensitive and not security_commands:
+        raise ValueError(
+            "security-sensitive changes require --security-check: "
+            + ", ".join(str(path) for path in sensitive)
+        )
 
     with Worktree(repo_root, base_commit) as sandbox:
         _materialize(sandbox, changes, all_units)
@@ -288,12 +363,27 @@ def minimize(
             sandbox,
             changes,
             all_units,
-            commands_tuple,
+            all_candidate_commands,
             preserve_commands,
             timeout,
             max_attempts,
             progress,
         )
+        if final_commands:
+            expected_snapshots = {change.path: change.render(selected) for change in changes}
+            passed, failed_command, output = _run_checks(sandbox, final_commands, timeout)
+            if not passed:
+                raise VerificationError(f"final check failed: {failed_command}\n{output}".rstrip())
+            mutated = [
+                str(change.path)
+                for change in changes
+                if current_snapshot(sandbox, change.path) != expected_snapshots[change.path]
+            ]
+            if mutated:
+                raise VerificationError(
+                    "final checks modified candidate files (checks must be non-mutating): "
+                    + ", ".join(mutated)
+                )
         final = {change.path: change.render(selected) for change in changes}
 
     changed_files = tuple(change.path for change in changes if final[change.path] != change.after)
@@ -310,4 +400,5 @@ def minimize(
         attempts=attempts,
         applied=apply,
         changed_files=changed_files,
+        protected_files=protected_files,
     )

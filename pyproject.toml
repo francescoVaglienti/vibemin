@@ -1,10 +1,10 @@
 [project]
 name = "vibemin"
-version = "0.1.0"
+version = "0.2.0"
 description = "Test-guided minimization of AI-generated Git changes"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 dependencies = []
 
 [project.scripts]

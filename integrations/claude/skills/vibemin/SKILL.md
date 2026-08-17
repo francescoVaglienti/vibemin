@@ -11,21 +11,37 @@ for compressed syntax or line count alone.
 ## Minimize production changes
 
 1. Read the diff and repository instructions.
-2. Identify the narrowest focused test plus the repository's non-mutating lint, format-check,
-   and typecheck commands.
-3. Keep changed tests outside the path scope so passing checks cannot delete them.
-4. Preview, review, then apply:
+2. Before reduction, consolidate AI-authored tests deliberately into the minimum integration
+   suite: one high-information golden path plus one case per independent security or failure
+   boundary. Do this by review, not by letting a passing suite delete its own assertions.
+3. Perform a security pass over authentication, authorization, tenant isolation, secrets,
+   caching, input limits, logging, and dependencies. Add the resulting focused integration
+   checks before minimization.
+4. Identify the narrowest focused test plus the repository's non-mutating lint, format-check,
+   strict typecheck, and security commands.
+5. Leave tests, manifests/lockfiles, and visual files protected. Validate lock consistency and
+   clean installation once with `--final-check`; do not spend every candidate on unchanged
+   generated files.
+6. Preview, review, then apply:
 
 ```sh
 vibemin src/changed_area \
   --dry-run \
   --check "<focused test>" \
-  --check "<lint/format/type check>"
+  --check "<lint/format/strict type check>" \
+  --security-check "<focused security check>" \
+  --final-check "<lock consistency or clean-install check>"
 
 vibemin src/changed_area \
   --check "<focused test>" \
-  --check "<lint/format/type check>"
+  --check "<lint/format/strict type check>" \
+  --security-check "<focused security check>" \
+  --final-check "<lock consistency or clean-install check>"
 ```
+
+For a feature spanning several commits, use `--feature-base origin/main`. Vibemin reduces the
+complete diff since the merge-base and leaves the result as working-tree changes to review
+before amending or squashing the feature.
 
 Never claim global minimality. Report the removed and retained diff units and the checks used.
 
@@ -51,6 +67,7 @@ output:
 
 ```sh
 vibemin tests/area \
+  --reduce-tests \
   --check "pytest -q tests/area" \
   --preserve-output "pytest --collect-only -q tests/area | sed '/collected in/d'"
 ```
@@ -62,8 +79,9 @@ killed-mutant set or an agreed mutation threshold instead:
 
 ```sh
 vibemin tests/area \
+  --reduce-tests \
   --check "pytest -q tests/area" \
-  --check "<command that verifies the mutation baseline>"
+  --test-strength-check "<command that verifies the mutation baseline>"
 ```
 
 Every retained test must catch a distinct plausible defect. Explain that defect in the review,
@@ -72,6 +90,10 @@ not necessarily as a comment in the code.
 ## Guardrails
 
 - Never minimize test files with ordinary test success as the sole oracle.
+- Never minimize manifests or lockfiles merely because an existing environment still runs.
+- Never minimize CSS or visual assets without deterministic screenshot/DOM preservation.
+- Never relax or omit strict TypeScript checks to obtain a smaller diff.
+- Require a separate security oracle for auth, tenant, session, token, or secret changes.
 - Never weaken assertions, remove boundary coverage, or lower mutation thresholds to pass.
 - Never include mutating formatters in `--check`; use formatter check mode.
 - Stop if the original candidate fails, checks are flaky, or required ignored files are absent

@@ -37,7 +37,67 @@ def _parser() -> argparse.ArgumentParser:
         metavar="COMMAND",
         help="require deterministic command output to remain exactly unchanged; repeatable",
     )
-    parser.add_argument("--base", default="HEAD", help="baseline commit (default: HEAD)")
+    parser.add_argument(
+        "--final-check",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="run a non-mutating clean-install or broad validation once on the final candidate",
+    )
+    parser.add_argument(
+        "--security-check",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="security-specific oracle required for auth, tenant, token, or secret changes",
+    )
+    parser.add_argument(
+        "--test-strength-check",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="mutation or equivalent test-strength oracle required when minimizing tests",
+    )
+    parser.add_argument(
+        "--dependency-check",
+        action="append",
+        default=[],
+        metavar="COMMAND",
+        help="manifest/lock consistency oracle required when minimizing dependency files",
+    )
+    parser.add_argument(
+        "--allow-test-changes",
+        "--reduce-tests",
+        dest="allow_test_changes",
+        action="store_true",
+        help="allow test reduction (requires a test-strength or preserved-output guard)",
+    )
+    parser.add_argument(
+        "--allow-dependency-changes",
+        action="store_true",
+        help="allow manifest/lock reduction (requires --dependency-check)",
+    )
+    parser.add_argument(
+        "--allow-visual-changes",
+        action="store_true",
+        help="allow stylesheet/asset reduction (requires deterministic --preserve-output)",
+    )
+    parser.add_argument(
+        "--allow-untyped-typescript",
+        action="store_true",
+        help="allow TypeScript reduction without a tsc/typecheck command",
+    )
+    baseline = parser.add_mutually_exclusive_group()
+    baseline.add_argument(
+        "--base",
+        default=None,
+        help="baseline commit or ref (default: HEAD)",
+    )
+    baseline.add_argument(
+        "--feature-base",
+        metavar="REF",
+        help="minimize the whole feature since its merge-base with REF",
+    )
     parser.add_argument(
         "--timeout", type=float, default=300, help="seconds allowed per command (default: 300)"
     )
@@ -70,9 +130,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = minimize(
             args.check,
-            base=args.base,
+            base=args.base or "HEAD",
+            feature_base=args.feature_base,
             paths=args.paths,
             preserve_outputs=args.preserve_output,
+            final_checks=args.final_check,
+            security_checks=args.security_check,
+            test_strength_checks=args.test_strength_check,
+            dependency_checks=args.dependency_check,
+            allow_test_changes=args.allow_test_changes,
+            allow_dependency_changes=args.allow_dependency_changes,
+            allow_visual_changes=args.allow_visual_changes,
+            allow_untyped_typescript=args.allow_untyped_typescript,
             timeout=args.timeout,
             max_attempts=args.max_attempts,
             apply=not args.dry_run,
@@ -93,4 +162,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {path}")
     else:
         print("The patch was already minimal under these checks.")
+    if result.protected_files:
+        print("Protected as fixed context:")
+        for path, kind in result.protected_files:
+            print(f"  {path} ({kind.value})")
     return 0

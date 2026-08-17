@@ -1,4 +1,4 @@
-.TH VIBEMIN 1 "2026-08-18" "vibemin 0.1.0" "User Commands"
+.TH VIBEMIN 1 "2026-08-18" "vibemin 0.2.0" "User Commands"
 .SH NAME
 vibemin \- minimize an AI-generated Git diff under executable constraints
 .SH SYNOPSIS
@@ -34,8 +34,41 @@ Capture the successful command's stdout and stderr for the original
 candidate and require every smaller candidate to reproduce it exactly.
 Use only deterministic commands.  This option may be repeated.
 .TP
-.BR \-\-base " " \fICOMMIT\fR
-Compare the working tree with COMMIT instead of HEAD.
+.BR \-\-final-check " " \fICOMMAND\fR
+Run an expensive clean-install, dependency audit, or broad validation once
+on the selected final candidate.  This option may be repeated.
+.TP
+.BR \-\-security-check " " \fICOMMAND\fR
+Add a security-specific oracle.  Required when reducible files contain auth,
+tenant, permission, session, token, cookie, or secret concerns.
+.TP
+.BR \-\-test-strength-check " " \fICOMMAND\fR
+Add a mutation or equivalent test-strength oracle.  Required to unlock test
+changes unless deterministic collection output is preserved.
+.TP
+.BR \-\-dependency-check " " \fICOMMAND\fR
+Add a manifest/lock consistency oracle.  Required to unlock dependency files.
+.TP
+.BR \--allow-test-changes ", " \--reduce-tests
+Allow test/spec/snapshot reduction with a test-strength guard.
+.TP
+.B \--allow-dependency-changes
+Allow dependency manifest or lockfile reduction with a dependency guard.
+.TP
+.B \--allow-visual-changes
+Allow stylesheet or visual-asset reduction with deterministic preserved output.
+.TP
+.B \--allow-untyped-typescript
+Explicitly permit TypeScript reduction without tsc/typecheck.  This weakens the
+default safety policy and is not recommended.
+.TP
+.BR \-\-base " " \fIREF\fR
+Compare the working tree with the exact commit or ref instead of HEAD.
+.TP
+.BR \-\-feature-base " " \fIREF\fR
+Minimize the complete current feature since the merge-base of HEAD and REF.
+Committed feature changes are included; the result is left as working-tree
+changes ready to amend or squash.
 .TP
 .BR \-\-timeout " " \fISECONDS\fR
 Set the maximum duration of each command.  The default is 300 seconds.
@@ -66,6 +99,11 @@ vibemin src/excel.py \
   --check "ruff check src/excel.py" \
   --check "ruff format --check src/excel.py"
 .fi
+.PP
+Tests/specs/snapshots, dependency manifests/lockfiles, and visual styles/assets
+are fixed context by default.  TypeScript changes require a typecheck.  Security-
+sensitive changes require a security-specific oracle.  Protected categories can
+only be unlocked with their corresponding options and guards.
 .SH MINIMIZING TEST CODE
 A passing suite alone is not a sufficient oracle for reducing tests:
 deleting a test makes the suite easier to pass.  When simplifying test
@@ -73,6 +111,7 @@ bodies without changing test cases, preserve the collection inventory:
 .PP
 .nf
 vibemin tests/excel \
+  --reduce-tests \
   --check "pytest -q tests/excel" \
   --preserve-output \
   "pytest --collect-only -q tests/excel | sed '/collected in/d'"
@@ -85,7 +124,8 @@ does not preserve assertion strength.
 .SH SAFETY
 Staged changes are rejected.  Verification commands that modify candidate
 files are rejected.  Changed symlinks, directories, and submodules are
-unsupported.  The original checkout is checked for concurrent changes
+unsupported.  Tests, dependency metadata, and unobserved visual changes are
+protected by default.  The original checkout is checked for concurrent changes
 before applying the result.
 .SH ENVIRONMENT
 .TP
