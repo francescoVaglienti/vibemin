@@ -46,94 +46,77 @@ and it only updates the real checkout after the result has passed every required
 
 ## Quick start
 
-### Install the CLI
+### “I don't care—just fix my agent setup”
 
-Install the checksummed standalone binary on macOS or Linux. No Python is required:
+On macOS or Linux, this is the whole setup:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --everything
+```
+
+It installs the checksummed standalone CLI, finds every installed Claude Code, Codex,
+GitHub Copilot, and Gemini CLI host, installs the Vibemin skill where each host expects it,
+and adds a concise feature-completion rule to each detected host's global instructions.
+The rule makes the agent run Vibemin after building a feature, with the relevant test, type,
+security, visual, and lockfile guardrails.
+
+The setup is safe to rerun: the skill is refreshed and the marked instruction is added only
+once. With no supported agent installed, it simply leaves you with the standalone CLI.
+Restart open agent sessions once so they discover the new skill and instructions.
+
+### Choose your setup
+
+Install only the standalone CLI—no Python and no agent configuration:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-binary.sh | sh
 ```
 
-Self-contained executables are published for macOS, Linux, and Windows on the
-[Releases page](https://github.com/francescoVaglienti/vibemin/releases/latest). Git is the
-only runtime prerequisite.
-
-### Install the CLI and Agent Skill
-
-This one-liner installs the binary, detects Claude Code, Codex, GitHub Copilot, and Gemini
-CLI, and adds the Vibemin skill to the agents it finds:
+Install the CLI and skill for detected agents, but do not change their global instructions:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh
 ```
 
-One detected agent is selected automatically. Because a curl pipe is non-interactive,
-multiple detected agents receive the skill together. Pin the destination when you only want
-one host:
+Choose one host explicitly, and optionally wire in automatic feature completion:
 
 ```sh
+# claude, codex, copilot, or gemini
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent codex
+
+# The same, plus its global feature-completion instruction
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent codex --configure
 ```
 
-Use `claude`, `codex`, `copilot`, `gemini`, `all`, or `standalone`. The skill teaches the
-agent how to choose checks, protect tests and lockfiles, handle security-sensitive changes,
-and minimize a complete feature rather than only the last uncommitted edit.
-
-### Make Vibemin part of feature completion
-
-Skills are selected when relevant; project instructions make the desired timing explicit.
-Add the following block to the instruction file used by your agent:
-
-| Agent | Project instruction file |
-| --- | --- |
-| Claude Code | [`CLAUDE.md`](https://code.claude.com/docs/en/memory#claudemd-files) |
-| Codex | [`AGENTS.md`](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
-| GitHub Copilot | [`.github/copilot-instructions.md`](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
-| Gemini CLI | [`GEMINI.md`](https://geminicli.com/docs/cli/gemini-md/) |
-
-```md
-## Feature completion
-
-After implementing a feature and before its final commit or pull request, use the installed
-Vibemin skill on the complete feature diff from its merge-base with the target branch
-(normally `origin/main`).
-
-- Derive the fastest relevant non-mutating tests, lint, formatter-check, and strict typecheck
-  commands from this repository; preview with `--dry-run` before applying.
-- Keep tests, manifests and lockfiles, snapshots, and visual assets protected unless their
-  dedicated strength or preservation oracle is available.
-- Add a focused security check for authentication, authorization, tenant, session, token, or
-  secret changes. Use the broad suite or clean-install validation as a final check.
-- Apply the reduction only when the original feature passes, then review the resulting diff
-  and rerun the relevant suite in the real checkout.
-- Never weaken tests, remove required behavior, or change acceptance criteria merely to make
-  the patch smaller.
-```
-
-This makes Vibemin a final evidence-driven cleanup pass, not something that fights the agent
-while the feature is still taking shape.
-
-### Run it directly
-
-From the repository containing your changes:
+Preinstall the skill and instruction for all four hosts, including ones not installed yet:
 
 ```sh
-vibemin --feature-base origin/main \
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent all --configure
+```
+
+Or install the Python package from [PyPI](https://pypi.org/project/vibemin/):
+
+```sh
+uv tool install vibemin
+```
+
+Self-contained executables for macOS, Linux, and Windows are also available on the
+[Releases page](https://github.com/francescoVaglienti/vibemin/releases/latest).
+
+### Minimize your feature
+
+Run a preview from the feature's merge-base with the target branch:
+
+```sh
+vibemin --feature-base origin/main --dry-run \
   --check "npm test -- --run" \
   --check "npm run lint" \
   --check "npm run typecheck"
 ```
 
-The verified result is written back as working-tree changes, ready to review and commit.
-Add `--dry-run` to inspect what Vibemin would remove without changing the checkout.
-
-### Alternative: Python package
-
-Install directly from GitHub with [`uv`](https://docs.astral.sh/uv/):
-
-```sh
-uv tool install git+https://github.com/francescoVaglienti/vibemin.git
-```
+Review the proposal, then repeat without `--dry-run` to apply it. Vibemin writes only the
+verified result back as working-tree changes, ready for a final review and commit. Your agent
+skill derives the appropriate commands and additional guards from the repository for you.
 
 ## Built for agentic code
 
@@ -276,53 +259,65 @@ Run `vibemin --help` for the complete command reference.
 
 Always review the final diff. Vibemin knows only what the checks prove.
 
-## Use it with your coding agent
+## Agent setup reference
 
-Vibemin is a standalone CLI; no AI subscription or agent is required. The optional Agent
-Skill teaches your existing coding agent when to minimize a patch and which test, security,
-TypeScript, visual, and lockfile guardrails to preserve.
+Agent integration has two small parts: the skill teaches *how* to minimize safely, while the
+optional feature-completion instruction says *when* to use it. Vibemin itself remains a local
+standalone CLI; no AI subscription, model API, account, or telemetry is required.
 
-Install the CLI and skill directly:
+The automatic setup only appends its clearly marked Vibemin block. It never rewrites existing
+agent instructions, and rerunning it does not duplicate the block.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh
-```
+| Agent | Personal skill | `--configure` instruction |
+| --- | --- | --- |
+| Claude Code | `~/.claude/skills/vibemin/SKILL.md` | `~/.claude/CLAUDE.md` |
+| Codex | `~/.agents/skills/vibemin/SKILL.md` | `~/.codex/AGENTS.md` |
+| GitHub Copilot | `~/.agents/skills/vibemin/SKILL.md` | `~/.copilot/copilot-instructions.md` |
+| Gemini CLI | `~/.agents/skills/vibemin/SKILL.md` | `~/.gemini/GEMINI.md` |
 
-Or install from a checkout when developing Vibemin itself:
+Codex, Copilot, and Gemini share the open Agent Skills location, so the installer keeps one
+copy rather than three duplicates. Claude uses its own skill directory. An explicit agent
+choice is safe when that host is absent: its files are ready for the next launch.
+
+### Installer modes
+
+| Mode | Result |
+| --- | --- |
+| No arguments | Detect hosts and install their skill; ask which one on an interactive multi-host setup. |
+| `--everything` | Install and configure every detected host without asking. |
+| `--agent codex` | Install for one named host, even if it is not installed yet. |
+| `--agent codex --configure` | Install one host and add its global feature-completion instruction. |
+| `--agent all --configure` | Preconfigure every supported host. |
+| `--agent standalone` | Install no agent files; use only the CLI. |
+
+Accepted host names are `claude`, `codex`, `copilot`, and `gemini`. The same options work
+with the curl bootstrap and with `scripts/install-user.sh` from a checkout.
+
+### Team-shared instructions
+
+`--configure` is personal machine setup. To make feature completion a repository policy,
+commit the same rule to the host's project instruction file:
+
+| Agent | Repository instruction file |
+| --- | --- |
+| Claude Code | [`CLAUDE.md`](https://code.claude.com/docs/en/memory#claudemd-files) |
+| Codex | [`AGENTS.md`](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
+| GitHub Copilot | [`.github/copilot-instructions.md`](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
+| Gemini CLI | [`GEMINI.md`](https://geminicli.com/docs/cli/gemini-md/) |
+
+Keep that rule short: run the Vibemin skill after implementation, use the full feature diff,
+derive checks from the repository, preserve protected files, and review the final result.
+The installed skill owns the detailed procedure so it does not need to live in every prompt.
+
+### Install from source
+
+Use a checkout when developing Vibemin itself:
 
 ```sh
 git clone https://github.com/francescoVaglienti/vibemin.git
 cd vibemin
 ./scripts/install-user.sh
 ```
-
-The installer detects `claude`, `codex`, `copilot`, and `gemini` executables and their
-local configuration directories. One match is selected automatically; several matches
-produce a choice prompt. With no detected agent, Vibemin installs as a standalone CLI and
-does not create an agent skill directory.
-
-For scripts and unattended setup, make the choice explicit:
-
-```sh
-./scripts/install-user.sh --agent standalone
-./scripts/install-user.sh --agent all
-./scripts/install-user.sh --agent claude
-./scripts/install-user.sh --agent codex
-./scripts/install-user.sh --agent copilot
-./scripts/install-user.sh --agent gemini
-```
-
-| Agent | Personal skill location | Use it |
-| --- | --- | --- |
-| Claude Code | `~/.claude/skills/vibemin/SKILL.md` | Run `/vibemin` or let Claude select it when relevant. |
-| Codex | `~/.agents/skills/vibemin/SKILL.md` | Mention `$vibemin` or let Codex select it when relevant. |
-| GitHub Copilot | `~/.agents/skills/vibemin/SKILL.md` | Ask Copilot to use Vibemin on the current patch. |
-| Gemini CLI | `~/.agents/skills/vibemin/SKILL.md` | Ask Gemini to minimize the patch; use `/skills list` to verify discovery. |
-
-The skill is based on the open Agent Skills format. Codex, Copilot, and Gemini share the
-same personal skill location, so the installer does not create three duplicate copies. An
-explicit agent choice is safe even when that host is absent: the skill is simply ready for
-its next launch.
 
 In standalone mode you run `vibemin` directly and supply the checks on the command line;
 there is no model, API key, or agent involved:

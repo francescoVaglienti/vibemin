@@ -4,6 +4,10 @@ set -eu
 REPOSITORY=francescoVaglienti/vibemin
 SOURCE_REF=${VIBEMIN_SOURCE_REF:-main}
 SOURCE_BASE_URL=${VIBEMIN_SOURCE_BASE_URL:-"https://raw.githubusercontent.com/$REPOSITORY/$SOURCE_REF"}
+SOURCE_QUERY=
+case "$SOURCE_BASE_URL" in
+    https://raw.githubusercontent.com/*) SOURCE_QUERY="?v=$(date +%s)" ;;
+esac
 
 for required_command in curl mktemp; do
     if ! command -v "$required_command" >/dev/null 2>&1; then
@@ -22,7 +26,7 @@ download() {
     relative_path=$1
     destination=$2
     curl --fail --location --silent --show-error \
-        "$SOURCE_BASE_URL/$relative_path" --output "$destination"
+        "$SOURCE_BASE_URL/$relative_path$SOURCE_QUERY" --output "$destination"
 }
 
 if [ "${VIBEMIN_SKIP_BINARY_INSTALL:-0}" != 1 ]; then

@@ -76,11 +76,20 @@ jobs:
           test -f "$absent_root/user/.agents/skills/vibemin/SKILL.md"
 
           bootstrap_root="$(mktemp -d)"
+          mkdir -p "$bootstrap_root/user/.codex"
+          printf '# Existing Codex instructions\n' > "$bootstrap_root/user/.codex/AGENTS.md"
           VIBEMIN_SKIP_BINARY_INSTALL=1 VIBEMIN_SKIP_COMMAND_DETECTION=1 \
             VIBEMIN_SOURCE_BASE_URL="file://$GITHUB_WORKSPACE" \
             VIBEMIN_USER_HOME="$bootstrap_root/user" \
-            ./scripts/install-agent.sh --agent codex
+            ./scripts/install-agent.sh --everything
+          VIBEMIN_SKIP_BINARY_INSTALL=1 VIBEMIN_SKIP_COMMAND_DETECTION=1 \
+            VIBEMIN_SOURCE_BASE_URL="file://$GITHUB_WORKSPACE" \
+            VIBEMIN_USER_HOME="$bootstrap_root/user" \
+            ./scripts/install-agent.sh --everything
           test -f "$bootstrap_root/user/.agents/skills/vibemin/SKILL.md"
+          grep -q '# Existing Codex instructions' "$bootstrap_root/user/.codex/AGENTS.md"
+          test "$(grep -c 'vibemin:feature-completion' \
+            "$bootstrap_root/user/.codex/AGENTS.md")" -eq 1
 
       - name: Check style and build
         if: matrix.python-version == '3.13'
