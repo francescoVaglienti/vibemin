@@ -1,0 +1,108 @@
+.TH VIBEMIN 1 "2026-08-18" "vibemin 0.1.0" "User Commands"
+.SH NAME
+vibemin \- minimize an AI-generated Git diff under executable constraints
+.SH SYNOPSIS
+.B vibemin
+.RI [ options ]
+.RI [ path ... ]
+.B \-c
+.I command
+.RI [ \-c
+.IR command ...]
+.SH DESCRIPTION
+.B vibemin
+uses delta debugging to remove inserted and deleted lines from the
+difference between a Git baseline and the working tree.  A smaller
+candidate is retained only when every verification command succeeds.
+.PP
+Candidates run in a disposable detached worktree.  The real checkout is
+changed only after a verified result has been found.  Text lines are
+independent reduction units; binary and empty-file changes are atomic.
+.PP
+The result is minimal only with respect to the supplied commands and
+existing diff units.  It does not synthesize a globally shortest
+implementation.  Weak checks can accept incorrect reductions.
+.SH OPTIONS
+.TP
+.BR \-c ", " \-\-check " " \fICOMMAND\fR
+Run a non-mutating test, lint, formatter-check, typecheck, security check,
+or other oracle.  This option is required and may be repeated.  Commands
+run from the temporary repository root.
+.TP
+.BR \-p ", " \-\-preserve-output " " \fICOMMAND\fR
+Capture the successful command's stdout and stderr for the original
+candidate and require every smaller candidate to reproduce it exactly.
+Use only deterministic commands.  This option may be repeated.
+.TP
+.BR \-\-base " " \fICOMMIT\fR
+Compare the working tree with COMMIT instead of HEAD.
+.TP
+.BR \-\-timeout " " \fISECONDS\fR
+Set the maximum duration of each command.  The default is 300 seconds.
+.TP
+.BR \-\-max-attempts " " \fIN\fR
+Stop after at most N candidate checks.  The default is 500.
+.TP
+.B \--dry-run
+Find and report the reduction without changing the real checkout.
+.TP
+.B \--verbose
+Print the captured output of failed verification commands.
+.TP
+.B \-h, \--help
+Show command help and exit.
+.SH ALGORITHM
+The initial changed-line set must pass every check.  Vibemin then removes
+progressively smaller groups of diff units.  A passing candidate becomes
+the new working set.  When allowed to finish, the result is 1-minimal: no
+remaining individual unit was demonstrated removable by the supplied
+oracles.
+.SH MINIMIZING PRODUCTION CODE
+Scope reduction to implementation paths and leave tests as fixed context:
+.PP
+.nf
+vibemin src/excel.py \
+  --check "pytest -q tests/test_excel.py" \
+  --check "ruff check src/excel.py" \
+  --check "ruff format --check src/excel.py"
+.fi
+.SH MINIMIZING TEST CODE
+A passing suite alone is not a sufficient oracle for reducing tests:
+deleting a test makes the suite easier to pass.  When simplifying test
+bodies without changing test cases, preserve the collection inventory:
+.PP
+.nf
+vibemin tests/excel \
+  --check "pytest -q tests/excel" \
+  --preserve-output \
+  "pytest --collect-only -q tests/excel | sed '/collected in/d'"
+.fi
+.PP
+When intentionally merging or deleting redundant cases, require a
+mutation-testing command that preserves the baseline mutation score or,
+preferably, the exact killed-mutant set.  Line or branch coverage alone
+does not preserve assertion strength.
+.SH SAFETY
+Staged changes are rejected.  Verification commands that modify candidate
+files are rejected.  Changed symlinks, directories, and submodules are
+unsupported.  The original checkout is checked for concurrent changes
+before applying the result.
+.SH ENVIRONMENT
+.TP
+.B VIBEMIN_ROOT
+Set for verification commands to the temporary worktree root.
+.SH LIMITATIONS
+Ignored files such as .env, .venv, and node_modules are not copied to the
+temporary worktree.  Commands must use available dependencies or shared
+package-manager caches.  Always review the final diff and rerun the
+relevant suite in the real checkout.
+.SH EXIT STATUS
+Zero on success; 2 for invalid usage, Git safety failures, or an original
+candidate that does not pass its verification commands.
+.SH FILES
+.TP
+.I ~/.claude/skills/vibemin/SKILL.md
+Recommended location for the user-wide Claude Code skill.
+.SH SEE ALSO
+.BR git-diff (1),
+.BR pytest (1)

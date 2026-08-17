@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vibemin"
+  short_description: "Minimize code and tests with strong oracles"
+  default_prompt: "Use $vibemin to simplify this patch while preserving behavior and test strength."
