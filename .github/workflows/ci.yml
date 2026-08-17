@@ -34,6 +34,15 @@ jobs:
       - name: Run tests
         run: uv run --with pytest pytest -q
 
+      - name: Smoke-test agent installer
+        if: matrix.python-version == '3.13'
+        run: |
+          install_root="$(mktemp -d)"
+          VIBEMIN_USER_HOME="$install_root/user" XDG_DATA_HOME="$install_root/data" \
+            ./scripts/install-user.sh
+          test -f "$install_root/user/.claude/skills/vibemin/SKILL.md"
+          test -f "$install_root/user/.agents/skills/vibemin/SKILL.md"
+
       - name: Check style and build
         if: matrix.python-version == '3.13'
         run: |

@@ -13,7 +13,10 @@
 
 Vibemin removes code your checks cannot justify—and keeps the patch that survives.
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Safety model](#safety-model) · [Recipes](#recipes)
+Works with **Claude Code**, **Codex**, **GitHub Copilot**, and **Gemini CLI**—or with no
+AI agent at all.
+
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Safety model](#safety-model) · [Agents](#use-it-with-your-coding-agent)
 
 </div>
 
@@ -209,15 +212,37 @@ Run `vibemin --help` for the complete command reference.
 
 Always review the final diff. Vibemin knows only what the checks prove.
 
-## Claude Code integration
+## Use it with your coding agent
 
-The repository includes a Claude Code skill, standing instruction, and man page:
+Vibemin is a standalone CLI; no AI subscription or agent is required. The optional Agent
+Skill teaches your existing coding agent when to minimize a patch and which test, security,
+TypeScript, visual, and lockfile guardrails to preserve.
 
 ```sh
 git clone https://github.com/francescoVaglienti/vibemin.git
 cd vibemin
 ./scripts/install-user.sh
 ```
+
+That installs the same skill for all four supported hosts. You can also install for only
+one agent:
+
+```sh
+./scripts/install-user.sh --agent claude
+./scripts/install-user.sh --agent codex
+./scripts/install-user.sh --agent copilot
+./scripts/install-user.sh --agent gemini
+```
+
+| Agent | Personal skill location | Use it |
+| --- | --- | --- |
+| Claude Code | `~/.claude/skills/vibemin/SKILL.md` | Run `/vibemin` or let Claude select it when relevant. |
+| Codex | `~/.agents/skills/vibemin/SKILL.md` | Mention `$vibemin` or let Codex select it when relevant. |
+| GitHub Copilot | `~/.agents/skills/vibemin/SKILL.md` | Ask Copilot to use Vibemin on the current patch. |
+| Gemini CLI | `~/.agents/skills/vibemin/SKILL.md` | Ask Gemini to minimize the patch; use `/skills list` to verify discovery. |
+
+The skill is based on the open Agent Skills format. Codex, Copilot, and Gemini share the
+same personal skill location, so the default installer does not create three duplicate copies.
 
 ## Development
 
