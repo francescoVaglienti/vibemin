@@ -7,6 +7,10 @@ requires-python = ">=3.10"
 license = "MIT"
 dependencies = []
 
+[project.urls]
+Repository = "https://github.com/francescoVaglienti/vibemin"
+Issues = "https://github.com/francescoVaglienti/vibemin/issues"
+
 [project.scripts]
 vibemin = "vibemin.cli:main"
 

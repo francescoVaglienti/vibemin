@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="410" viewBox="0 0 1200 410" role="img" aria-labelledby="title desc">
+  <title id="title">Vibemin</title>
+  <desc id="desc">Make every line earn its place. Test-guided minimization for AI-generated Git diffs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#080A12"/>
+      <stop offset="0.55" stop-color="#111225"/>
+      <stop offset="1" stop-color="#17112A"/>
+    </linearGradient>
+    <radialGradient id="glow-violet" cx="0" cy="0" r="1" gradientTransform="translate(355 175) rotate(28) scale(410 260)">
+      <stop stop-color="#725CFF" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#725CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-blue" cx="0" cy="0" r="1" gradientTransform="translate(1030 68) rotate(135) scale(350 230)">
+      <stop stop-color="#2E82FF" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#2E82FF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity=".035"/>
+    </pattern>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8B7CFF"/>
+      <stop offset="1" stop-color="#3C8DFF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="410" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="410" rx="24" fill="url(#glow-violet)"/>
+  <rect width="1200" height="410" rx="24" fill="url(#glow-blue)"/>
+  <rect width="1200" height="410" rx="24" fill="url(#grid)"/>
+  <rect x=".75" y=".75" width="1198.5" height="408.5" rx="23.25" fill="none" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="1.5"/>
+
+  <g transform="translate(68 56)">
+    <g>
+      <rect width="37" height="37" rx="10" fill="url(#accent)"/>
+      <path d="M10 11h17M10 18.5h12M10 26h7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      <path d="m24 23 3.5 3.5L33 19" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="51" y="27" fill="#F8F8FC" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="700" letter-spacing="-.6">vibemin</text>
+    </g>
+
+    <text x="0" y="113" fill="#FAFAFF" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="49" font-weight="730" letter-spacing="-1.9">Make every line</text>
+    <text x="0" y="169" fill="#FAFAFF" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="49" font-weight="730" letter-spacing="-1.9">earn its place.</text>
+    <text x="1" y="216" fill="#B9B9C8" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18">Test-guided minimization for AI-generated Git diffs.</text>
+
+    <g transform="translate(0 256)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="650" letter-spacing=".8">
+      <g>
+        <rect width="104" height="28" rx="14" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".1"/>
+        <circle cx="15" cy="14" r="3" fill="#8B7CFF"/>
+        <text x="25" y="18" fill="#D8D6E5">LOCAL FIRST</text>
+      </g>
+      <g transform="translate(114)">
+        <rect width="151" height="28" rx="14" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".1"/>
+        <circle cx="15" cy="14" r="3" fill="#4B95FF"/>
+        <text x="25" y="18" fill="#D8D6E5">ZERO RUNTIME DEPS</text>
+      </g>
+      <g transform="translate(275)">
+        <rect width="118" height="28" rx="14" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".1"/>
+        <circle cx="15" cy="14" r="3" fill="#B198FF"/>
+        <text x="25" y="18" fill="#D8D6E5">SAFE DEFAULTS</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(681 56)" filter="url(#shadow)">
+    <rect width="451" height="298" rx="15" fill="#0B0D16" stroke="#FFFFFF" stroke-opacity=".13"/>
+    <path d="M0 47h451" stroke="#FFFFFF" stroke-opacity=".09"/>
+    <circle cx="22" cy="24" r="5" fill="#FF6B6B"/>
+    <circle cx="40" cy="24" r="5" fill="#F5BE4F"/>
+    <circle cx="58" cy="24" r="5" fill="#5ECF83"/>
+    <text x="225.5" y="29" text-anchor="middle" fill="#707283" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">feature/payments — vibemin</text>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
+      <text x="22" y="80" fill="#8B7CFF">$</text>
+      <text x="39" y="80" fill="#E8E8F0">vibemin --feature-base origin/main</text>
+      <text x="22" y="111" fill="#5ECF83">[001] PASS</text>
+      <text x="112" y="111" fill="#8C8E9F">retained=11844</text>
+      <text x="22" y="139" fill="#F2B950">[027] fail</text>
+      <text x="112" y="139" fill="#8C8E9F">retained=10320</text>
+      <text x="22" y="167" fill="#5ECF83">[149] PASS</text>
+      <text x="112" y="167" fill="#8C8E9F">retained=9620</text>
+
+      <rect x="22" y="195" width="407" height="1" fill="#FFFFFF" fill-opacity=".08"/>
+      <text x="22" y="228" fill="#F1F1F7">Removed</text>
+      <text x="87" y="228" fill="#9B8CFF" font-weight="700">2,224</text>
+      <text x="135" y="228" fill="#F1F1F7">of 11,844 diff units.</text>
+      <text x="22" y="258" fill="#7F8192">9,620 lines proved necessary.</text>
+    </g>
+  </g>
+</svg>
