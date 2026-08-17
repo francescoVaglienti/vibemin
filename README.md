@@ -224,10 +224,16 @@ cd vibemin
 ./scripts/install-user.sh
 ```
 
-That installs the same skill for all four supported hosts. You can also install for only
-one agent:
+The installer detects `claude`, `codex`, `copilot`, and `gemini` executables and their
+local configuration directories. One match is selected automatically; several matches
+produce a choice prompt. With no detected agent, Vibemin installs as a standalone CLI and
+does not create an agent skill directory.
+
+For scripts and unattended setup, make the choice explicit:
 
 ```sh
+./scripts/install-user.sh --agent standalone
+./scripts/install-user.sh --agent all
 ./scripts/install-user.sh --agent claude
 ./scripts/install-user.sh --agent codex
 ./scripts/install-user.sh --agent copilot
@@ -242,7 +248,16 @@ one agent:
 | Gemini CLI | `~/.agents/skills/vibemin/SKILL.md` | Ask Gemini to minimize the patch; use `/skills list` to verify discovery. |
 
 The skill is based on the open Agent Skills format. Codex, Copilot, and Gemini share the
-same personal skill location, so the default installer does not create three duplicate copies.
+same personal skill location, so the installer does not create three duplicate copies. An
+explicit agent choice is safe even when that host is absent: the skill is simply ready for
+its next launch.
+
+In standalone mode you run `vibemin` directly and supply the checks on the command line;
+there is no model, API key, or agent involved:
+
+```sh
+vibemin --check "pytest -q" --check "ruff check ."
+```
 
 ## Development
 

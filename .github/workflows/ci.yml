@@ -37,11 +37,43 @@ jobs:
       - name: Smoke-test agent installer
         if: matrix.python-version == '3.13'
         run: |
-          install_root="$(mktemp -d)"
-          VIBEMIN_USER_HOME="$install_root/user" XDG_DATA_HOME="$install_root/data" \
+          single_root="$(mktemp -d)"
+          mkdir -p "$single_root/user/.codex"
+          VIBEMIN_SKIP_COMMAND_DETECTION=1 VIBEMIN_SKIP_CLI_INSTALL=1 \
+            VIBEMIN_USER_HOME="$single_root/user" XDG_DATA_HOME="$single_root/data" \
             ./scripts/install-user.sh
-          test -f "$install_root/user/.claude/skills/vibemin/SKILL.md"
-          test -f "$install_root/user/.agents/skills/vibemin/SKILL.md"
+          test -f "$single_root/user/.agents/skills/vibemin/SKILL.md"
+          test ! -e "$single_root/user/.claude/skills/vibemin/SKILL.md"
+
+          choice_root="$(mktemp -d)"
+          mkdir -p "$choice_root/user/.claude" "$choice_root/user/.codex"
+          printf 'claude\n' | VIBEMIN_FORCE_INTERACTIVE=1 \
+            VIBEMIN_SKIP_COMMAND_DETECTION=1 VIBEMIN_SKIP_CLI_INSTALL=1 \
+            VIBEMIN_USER_HOME="$choice_root/user" XDG_DATA_HOME="$choice_root/data" \
+            ./scripts/install-user.sh
+          test -f "$choice_root/user/.claude/skills/vibemin/SKILL.md"
+          test ! -e "$choice_root/user/.agents/skills/vibemin/SKILL.md"
+
+          multi_root="$(mktemp -d)"
+          mkdir -p "$multi_root/user/.claude" "$multi_root/user/.gemini"
+          VIBEMIN_SKIP_COMMAND_DETECTION=1 VIBEMIN_SKIP_CLI_INSTALL=1 \
+            VIBEMIN_USER_HOME="$multi_root/user" XDG_DATA_HOME="$multi_root/data" \
+            ./scripts/install-user.sh < /dev/null
+          test -f "$multi_root/user/.claude/skills/vibemin/SKILL.md"
+          test -f "$multi_root/user/.agents/skills/vibemin/SKILL.md"
+
+          standalone_root="$(mktemp -d)"
+          VIBEMIN_SKIP_COMMAND_DETECTION=1 VIBEMIN_SKIP_CLI_INSTALL=1 \
+            VIBEMIN_USER_HOME="$standalone_root/user" XDG_DATA_HOME="$standalone_root/data" \
+            ./scripts/install-user.sh
+          test ! -e "$standalone_root/user/.agents"
+          test ! -e "$standalone_root/user/.claude"
+
+          absent_root="$(mktemp -d)"
+          VIBEMIN_SKIP_COMMAND_DETECTION=1 VIBEMIN_SKIP_CLI_INSTALL=1 \
+            VIBEMIN_USER_HOME="$absent_root/user" XDG_DATA_HOME="$absent_root/data" \
+            ./scripts/install-user.sh --agent gemini
+          test -f "$absent_root/user/.agents/skills/vibemin/SKILL.md"
 
       - name: Check style and build
         if: matrix.python-version == '3.13'
