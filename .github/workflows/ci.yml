@@ -75,6 +75,13 @@ jobs:
             ./scripts/install-user.sh --agent gemini
           test -f "$absent_root/user/.agents/skills/vibemin/SKILL.md"
 
+          bootstrap_root="$(mktemp -d)"
+          VIBEMIN_SKIP_BINARY_INSTALL=1 VIBEMIN_SKIP_COMMAND_DETECTION=1 \
+            VIBEMIN_SOURCE_BASE_URL="file://$GITHUB_WORKSPACE" \
+            VIBEMIN_USER_HOME="$bootstrap_root/user" \
+            ./scripts/install-agent.sh --agent codex
+          test -f "$bootstrap_root/user/.agents/skills/vibemin/SKILL.md"
+
       - name: Check style and build
         if: matrix.python-version == '3.13'
         run: |

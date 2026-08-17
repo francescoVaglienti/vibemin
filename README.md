@@ -46,9 +46,9 @@ and it only updates the real checkout after the result has passed every required
 
 ## Quick start
 
-### No Python required
+### Install the CLI
 
-Install the checksummed standalone binary on macOS or Linux:
+Install the checksummed standalone binary on macOS or Linux. No Python is required:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-binary.sh | sh
@@ -58,33 +58,82 @@ Self-contained executables are published for macOS, Linux, and Windows on the
 [Releases page](https://github.com/francescoVaglienti/vibemin/releases/latest). Git is the
 only runtime prerequisite.
 
-### Python package
+### Install the CLI and Agent Skill
+
+This one-liner installs the binary, detects Claude Code, Codex, GitHub Copilot, and Gemini
+CLI, and adds the Vibemin skill to the agents it finds:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh
+```
+
+One detected agent is selected automatically. Because a curl pipe is non-interactive,
+multiple detected agents receive the skill together. Pin the destination when you only want
+one host:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent codex
+```
+
+Use `claude`, `codex`, `copilot`, `gemini`, `all`, or `standalone`. The skill teaches the
+agent how to choose checks, protect tests and lockfiles, handle security-sensitive changes,
+and minimize a complete feature rather than only the last uncommitted edit.
+
+### Make Vibemin part of feature completion
+
+Skills are selected when relevant; project instructions make the desired timing explicit.
+Add the following block to the instruction file used by your agent:
+
+| Agent | Project instruction file |
+| --- | --- |
+| Claude Code | [`CLAUDE.md`](https://code.claude.com/docs/en/memory#claudemd-files) |
+| Codex | [`AGENTS.md`](https://learn.chatgpt.com/docs/agent-configuration/agents-md) |
+| GitHub Copilot | [`.github/copilot-instructions.md`](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
+| Gemini CLI | [`GEMINI.md`](https://geminicli.com/docs/cli/gemini-md/) |
+
+```md
+## Feature completion
+
+After implementing a feature and before its final commit or pull request, use the installed
+Vibemin skill on the complete feature diff from its merge-base with the target branch
+(normally `origin/main`).
+
+- Derive the fastest relevant non-mutating tests, lint, formatter-check, and strict typecheck
+  commands from this repository; preview with `--dry-run` before applying.
+- Keep tests, manifests and lockfiles, snapshots, and visual assets protected unless their
+  dedicated strength or preservation oracle is available.
+- Add a focused security check for authentication, authorization, tenant, session, token, or
+  secret changes. Use the broad suite or clean-install validation as a final check.
+- Apply the reduction only when the original feature passes, then review the resulting diff
+  and rerun the relevant suite in the real checkout.
+- Never weaken tests, remove required behavior, or change acceptance criteria merely to make
+  the patch smaller.
+```
+
+This makes Vibemin a final evidence-driven cleanup pass, not something that fights the agent
+while the feature is still taking shape.
+
+### Run it directly
+
+From the repository containing your changes:
+
+```sh
+vibemin --feature-base origin/main \
+  --check "npm test -- --run" \
+  --check "npm run lint" \
+  --check "npm run typecheck"
+```
+
+The verified result is written back as working-tree changes, ready to review and commit.
+Add `--dry-run` to inspect what Vibemin would remove without changing the checkout.
+
+### Alternative: Python package
 
 Install directly from GitHub with [`uv`](https://docs.astral.sh/uv/):
 
 ```sh
 uv tool install git+https://github.com/francescoVaglienti/vibemin.git
 ```
-
-From the repository containing your changes:
-
-```sh
-vibemin \
-  --check "npm test -- --run" \
-  --check "npm run lint" \
-  --check "npm run typecheck"
-```
-
-Or minimize the complete feature branch from its merge-base with `main`:
-
-```sh
-vibemin --feature-base origin/main \
-  --check "pytest -q" \
-  --check "ruff check ."
-```
-
-The verified result is written back as working-tree changes, ready to review and commit.
-Add `--dry-run` to inspect what Vibemin would remove without changing the checkout.
 
 ## Built for agentic code
 
@@ -232,6 +281,14 @@ Always review the final diff. Vibemin knows only what the checks prove.
 Vibemin is a standalone CLI; no AI subscription or agent is required. The optional Agent
 Skill teaches your existing coding agent when to minimize a patch and which test, security,
 TypeScript, visual, and lockfile guardrails to preserve.
+
+Install the CLI and skill directly:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh
+```
+
+Or install from a checkout when developing Vibemin itself:
 
 ```sh
 git clone https://github.com/francescoVaglienti/vibemin.git

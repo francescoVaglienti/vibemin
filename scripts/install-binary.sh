@@ -71,3 +71,10 @@ mkdir -p "$INSTALL_DIR"
 install -m 0755 "$TEMP_DIR/unpacked/vibemin" "$INSTALL_DIR/vibemin"
 printf 'Installed %s\n' "$INSTALL_DIR/vibemin"
 "$INSTALL_DIR/vibemin" --version
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *)
+        printf 'Add Vibemin to future shells with:\n'
+        printf '  export PATH="%s:$PATH"\n' "$INSTALL_DIR"
+        ;;
+esac
