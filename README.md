@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/vibemin-hero.svg" alt="Vibemin — make every line earn its place" width="100%">
+  <img src="assets/vibemin-hero.svg" alt="Vibemin. Make every line earn its place" width="100%">
 </div>
 
 <div align="center">
@@ -14,20 +14,19 @@
 
 Vibemin removes code your checks cannot justify—and keeps the patch that survives.
 
-Works with **Claude Code**, **Codex**, **GitHub Copilot**, and **Gemini CLI**—or with no
-AI agent at all.
+It works with Claude Code, Codex, GitHub Copilot, Gemini CLI, or without an agent.
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Safety model](#safety-model) · [Agents](#use-it-with-your-coding-agent)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Safety](#safety) · [Agent setup](#agent-setup)
 
 </div>
 
 ---
 
-AI coding tools are very good at adding code. They are less disciplined about taking it
-back out. Vibemin treats your Git diff as a search space and your tests as a contract,
-repeatedly removing candidate lines until every remaining unit has earned its place.
+AI coding tools are very good at adding code. They are terrible at taking it back out.
+Vibemin treats the diff as a search space and your checks as the contract. It keeps removing
+parts of the change until removing anything else would make a check fail.
 
-> Tests are the contract. The diff is negotiable.
+> The checks are the contract. The diff is negotiable.
 
 ```console
 $ vibemin --feature-base origin/main \
@@ -41,54 +40,57 @@ $ vibemin --feature-base origin/main \
 Removed 2,224 of 11,844 diff units in 149 checks; 9,620 remain.
 ```
 
-Vibemin runs locally in a disposable Git worktree. It never sends your code anywhere,
-and it only updates the real checkout after the result has passed every required check.
+Everything runs locally in a disposable Git worktree. Your code is not sent anywhere. The
+real checkout is updated once, after the final result has passed every check you supplied.
 
 ## Quick start
 
-### “I don't care—just fix my agent setup”
+### I do not care, just fix my agent setup
 
-On macOS or Linux, this is the whole setup:
+On macOS or Linux, run this:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --everything
 ```
 
-It installs the checksummed standalone CLI, finds every installed Claude Code, Codex,
-GitHub Copilot, and Gemini CLI host, installs the Vibemin skill where each host expects it,
-and adds a concise feature-completion rule to each detected host's global instructions.
-The rule makes the agent run Vibemin after building a feature, with the relevant test, type,
-security, visual, and lockfile guardrails.
+This installs the standalone CLI, checks its checksum, finds Claude Code, Codex, GitHub
+Copilot and Gemini CLI, then installs the Vibemin skill for every host it finds. It also adds
+one short rule to each host so Vibemin runs after a feature is built. That rule tells the
+agent to derive the relevant test, type, security, visual and lockfile checks from the
+repository.
 
-The setup is safe to rerun: the skill is refreshed and the marked instruction is added only
-once. With no supported agent installed, it simply leaves you with the standalone CLI.
-Restart open agent sessions once so they discover the new skill and instructions.
+You can run the command again later. It refreshes the skill and does not duplicate the rule.
+If there is no supported agent on the machine, it only installs the CLI. Restart any open
+agent sessions once after installation so they can discover the skill.
 
-### Choose your setup
+### Choose the setup yourself
 
-Install only the standalone CLI—no Python and no agent configuration:
+Install only the CLI. This does not need Python and does not change any agent configuration:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-binary.sh | sh
 ```
 
-Install the CLI and skill for detected agents, but do not change their global instructions:
+Install the CLI and the skill for detected agents, without changing their instructions:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh
 ```
 
-Choose one host explicitly, and optionally wire in automatic feature completion:
+Choose one host:
 
 ```sh
 # claude, codex, copilot, or gemini
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent codex
+```
 
-# The same, plus its global feature-completion instruction
+Choose one host and make it run Vibemin when it finishes a feature:
+
+```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent codex --configure
 ```
 
-Preinstall the skill and instruction for all four hosts, including ones not installed yet:
+Prepare all four hosts, including hosts that are not installed yet:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/francescoVaglienti/vibemin/main/scripts/install-agent.sh | sh -s -- --agent all --configure
@@ -100,12 +102,24 @@ Or install the Python package from [PyPI](https://pypi.org/project/vibemin/):
 uv tool install vibemin
 ```
 
-Self-contained executables for macOS, Linux, and Windows are also available on the
+Executables for macOS, Linux and Windows are available on the
 [Releases page](https://github.com/francescoVaglienti/vibemin/releases/latest).
 
-### Minimize your feature
+### Choose what to reduce
 
-Run a preview from the feature's merge-base with the target branch:
+Vibemin removes lines from the difference between the current checkout and a baseline. The
+baseline decides what is in scope:
+
+| Goal | Baseline | Command |
+| --- | --- | --- |
+| Current uncommitted work | `HEAD` | `vibemin PATHS ...` |
+| An existing feature | Branch split from the target | `vibemin --feature-base origin/main ...` |
+| The whole codebase | A temporary empty commit | `vibemin --base "$EMPTY_BASE" ...` |
+
+#### Reduce an existing feature
+
+Run this from the feature branch. It includes every committed and uncommitted change since
+the branch split from `origin/main`:
 
 ```sh
 vibemin --feature-base origin/main --dry-run \
@@ -114,55 +128,87 @@ vibemin --feature-base origin/main --dry-run \
   --check "npm run typecheck"
 ```
 
-Review the proposal, then repeat without `--dry-run` to apply it. Vibemin writes only the
-verified result back as working-tree changes, ready for a final review and commit. Your agent
-skill derives the appropriate commands and additional guards from the repository for you.
+Review the proposal, then run the same command without `--dry-run` to apply it. The verified
+result is written back as working tree changes. Existing commits are not rewritten. You can
+review the result and then amend or squash the feature yourself.
 
-## Built for agentic code
+#### Reduce the whole codebase
 
-| Capability | What it gives you |
+To put every tracked file in scope, compare the current checkout with a temporary empty
+commit:
+
+```sh
+EMPTY_TREE=$(git hash-object -t tree /dev/null)
+EMPTY_BASE=$(git -c user.name=Vibemin -c user.email=vibemin@localhost \
+  commit-tree "$EMPTY_TREE" -m "Empty Vibemin baseline")
+
+vibemin --base "$EMPTY_BASE" --dry-run \
+  --check "pytest -q" \
+  --check "ruff check ."
+```
+
+The empty commit is not added to your branch or its history. With no path arguments, Vibemin
+can try every unprotected line in the repository. Tests, dependency files and visual assets
+stay fixed by default. Use complete checks here because the search covers the complete
+codebase. Review the proposal, then remove `--dry-run` to apply it.
+
+When you use the agent skill, the agent derives the commands and any extra guards from the
+repository.
+
+## What it protects
+
+| Capability | Result |
 | --- | --- |
-| **Feature-wide reduction** | Minimize committed and uncommitted work together from a branch merge-base. |
-| **Behavior-preserving search** | Every accepted candidate must pass the checks you supplied. |
-| **Safe test reduction** | Tests stay fixed unless you opt in with collection or mutation-strength protection. |
-| **Visual protection** | Styles and assets stay fixed without a deterministic rendered-output oracle. |
-| **Dependency protection** | Manifests and lockfiles require an explicit consistency check before reduction. |
-| **Type and security gates** | TypeScript and security-sensitive changes require the checks that can actually validate them. |
-| **Local by design** | No service, account, telemetry, or runtime dependency is required. |
+| Entire feature | Minimize committed and uncommitted work together from the branch merge base. |
+| Verified reduction | Every accepted candidate must pass the checks you supplied. |
+| Tests | Keep tests fixed unless you explicitly allow reduction and protect their strength. |
+| Visual output | Keep styles and assets fixed unless you supply a deterministic output check. |
+| Dependencies | Require a consistency check before manifests or lockfiles may change. |
+| Types and security | Require checks that can validate TypeScript and security sensitive changes. |
+| Local execution | Use no service, account, telemetry or runtime dependency. |
 
 ## How it works
 
-1. **Read the diff.** Vibemin turns inserted and deleted lines into removable units.
-2. **Build a sandbox.** Candidate patches run in a temporary detached Git worktree.
-3. **Search by subtraction.** Groups of units are removed using delta debugging.
-4. **Verify every candidate.** Tests, linters, type checks, and output contracts decide what survives.
-5. **Apply once.** Only the final verified patch is written to your checkout.
+1. Read the diff:
+   Inserted and deleted lines become units that Vibemin can try to remove.
+2. Build a sandbox:
+   Every candidate patch runs in a temporary detached Git worktree.
+3. Search by subtraction:
+   Delta debugging removes groups of units and keeps the smaller candidates that still pass.
+4. Verify each candidate:
+   Tests, linters, type checks and output contracts decide what survives.
+5. Apply once:
+   Only the final verified patch is written to the real checkout.
 
-The result is *1-minimal under the supplied checks*: no remaining individual unit was
-shown to be removable. It is not a claim that the implementation is globally shortest,
-and weak checks can still permit an incorrect reduction.
+The result is one minimal under the checks you supplied. Vibemin has shown that no individual
+unit can be removed while those checks still pass. It does not claim that the implementation
+is the shortest possible one. Weak checks can still allow a wrong reduction, which is why the
+guards below exist.
 
-## Safety model
+## Safety
 
-Green unit tests alone do not prove that tests, lockfiles, or rendered output survived.
-Vibemin protects the easy-to-game parts of a patch by default.
+Green unit tests do not prove that tests, lockfiles or rendered output survived. Vibemin keeps
+the parts that are easy to game fixed by default.
 
-| Change category | Default | Explicit unlock |
+| Change category | Default | How to allow it |
 | --- | --- | --- |
-| Tests, specs, snapshots | Protected | `--reduce-tests` plus `--test-strength-check` or `--preserve-output` |
+| Tests, specs and snapshots | Protected | `--reduce-tests` plus `--test-strength-check` or `--preserve-output` |
 | Dependency manifests and lockfiles | Protected | `--allow-dependency-changes` plus `--dependency-check` |
-| Styles, fonts, icons, images | Protected | `--allow-visual-changes` plus deterministic `--preserve-output` |
+| Styles, fonts, icons and images | Protected | `--allow-visual-changes` plus deterministic `--preserve-output` |
 | TypeScript | Typecheck required | `--allow-untyped-typescript` |
-| Auth, tenant, token, session, secret code | Security oracle required | `--security-check` |
+| Auth, tenant, token, session and secret code | Security check required | `--security-check` |
 | Expensive broad validation | Run once on the winner | `--final-check` |
 
-These defaults prevent misleading wins such as deleting assertions until the suite passes,
-removing CSS because a non-visual build stays green, or drifting a lockfile away from its
-manifest. Vibemin reports every protected file as fixed context.
+These defaults stop misleading wins such as deleting assertions until the suite passes,
+removing CSS because a build does not inspect the result, or leaving a lockfile out of sync
+with its manifest. Vibemin reports protected files as fixed context so the reason is visible.
 
 ## Recipes
 
-### Minimize selected paths
+### Reduce current uncommitted changes
+
+Without `--base` or `--feature-base`, Vibemin compares the working tree with `HEAD`. Path
+arguments limit that uncommitted diff to the files or directories you name:
 
 ```sh
 vibemin src/new-feature \
@@ -170,20 +216,20 @@ vibemin src/new-feature \
   --check "npm run lint"
 ```
 
-### Minimize a whole feature
+### Limit an existing feature to selected paths
 
-`--feature-base` finds the merge-base, so unrelated target-branch history is excluded.
-Use `--base REF` when you want an exact baseline instead.
+Combine path arguments with `--feature-base` when only part of an existing feature should be
+reduced. Other feature files remain available to the checks as fixed context:
 
 ```sh
-vibemin --feature-base origin/main \
+vibemin src/new-feature --feature-base origin/main \
   --check "pytest -q" \
   --final-check "pytest -q tests/integration"
 ```
 
 ### Reduce tests without weakening them
 
-Preserve the collected test inventory when simplifying test bodies:
+If you simplify test bodies, preserve the collected test inventory:
 
 ```sh
 vibemin tests --reduce-tests \
@@ -191,8 +237,8 @@ vibemin tests --reduce-tests \
   --preserve-output "pytest --collect-only -q | sed '/collected in/d'"
 ```
 
-When intentionally merging overlapping cases, collection output must change. Protect the
-mutation score or killed-mutant set instead:
+If you intentionally merge overlapping cases, the collection output has to change. Protect
+the mutation score or killed mutant set instead:
 
 ```sh
 vibemin tests --reduce-tests \
@@ -200,9 +246,9 @@ vibemin tests --reduce-tests \
   --test-strength-check "./scripts/check-mutation-baseline"
 ```
 
-Coverage alone does not preserve assertion strength.
+Coverage by itself does not protect assertion strength.
 
-### Preserve a rendered contract
+### Preserve rendered output
 
 ```sh
 vibemin web/src --allow-visual-changes \
@@ -210,9 +256,9 @@ vibemin web/src --allow-visual-changes \
   --preserve-output "./scripts/render-reference-screenshot --hash"
 ```
 
-`--preserve-output` records deterministic stdout and stderr from the first verified
-candidate and requires an exact match from every smaller one. It also works well for API
-schemas, generated interfaces, and CLI snapshots.
+`--preserve-output` records deterministic output from the first verified candidate and
+requires an exact match from every smaller candidate. The same approach works for API
+schemas, generated interfaces and CLI snapshots.
 
 ### Validate dependency changes
 
@@ -234,69 +280,68 @@ vibemin --dry-run \
 
 | Option | Purpose |
 | --- | --- |
-| `-c, --check COMMAND` | Add a fast, non-mutating acceptance check; repeatable and required. |
+| `-c, --check COMMAND` | Add a fast check that does not change files. Repeatable and required. |
 | `-p, --preserve-output COMMAND` | Preserve deterministic command output exactly. |
-| `--final-check COMMAND` | Run an expensive clean-install or broad check on the winner. |
-| `--feature-base REF` | Include the entire feature since `merge-base HEAD REF`. |
+| `--final-check COMMAND` | Run an expensive clean install or broad check on the winner. |
+| `--feature-base REF` | Include the entire feature since the merge base of `HEAD` and `REF`. |
 | `--base REF` | Use an exact baseline instead of `HEAD`. |
-| `--max-attempts N` | Bound the number of candidate checks; defaults to 500. |
-| `--timeout SECONDS` | Bound each command; defaults to 300 seconds. |
+| `--max-attempts N` | Limit candidate checks. The default is 500. |
+| `--timeout SECONDS` | Limit each command. The default is 300 seconds. |
 | `--dry-run` | Find the result without changing the checkout. |
 | `--verbose` | Show output from failed candidate checks. |
 
 Run `vibemin --help` for the complete command reference.
 
-## Guardrails and limitations
+## Current limits
 
-- Staged changes are rejected so the index and working tree cannot diverge unexpectedly.
-- Symlinks and changed directories or submodules are currently rejected.
-- Ignored local files such as `.env`, `.venv`, and `node_modules` are not copied into the
-  temporary worktree. Prefer globally available tools or shared package-manager caches.
-- Checks must be non-mutating and run from the root of the temporary worktree.
-- Untracked, non-ignored files are included. Files outside explicit path arguments remain
-  available as fixed context.
-- Binary files and empty-file changes are atomic reduction units.
+1. Staged changes are rejected because the index and working tree should not diverge during a run.
+2. Symlinks and changed directories or submodules are currently rejected.
+3. Ignored local files such as `.env`, `.venv` and `node_modules` are not copied into the temporary worktree. Use tools that are globally available or a shared package manager cache.
+4. Checks must run from the temporary worktree root and must not change files.
+5. Untracked files are included when Git does not ignore them. Files outside the selected paths stay available as fixed context.
+6. Binary files and empty file changes are reduced as single units.
 
-Always review the final diff. Vibemin knows only what the checks prove.
+Review the final diff. Vibemin can only prove what the supplied checks prove.
 
-## Agent setup reference
+## Agent setup
 
-Agent integration has two small parts: the skill teaches *how* to minimize safely, while the
-optional feature-completion instruction says *when* to use it. Vibemin itself remains a local
-standalone CLI; no AI subscription, model API, account, or telemetry is required.
+Agent integration has two parts. The skill tells an agent how to minimize safely. The optional
+feature completion rule tells it when to do so. Vibemin itself stays a local CLI. It does not
+need a model API, an account or telemetry.
 
-The automatic setup only appends its clearly marked Vibemin block. It never rewrites existing
-agent instructions, and rerunning it does not duplicate the block.
+The installer only appends a marked Vibemin block to an existing instruction file. It does
+not rewrite the content that is already there, and running it again does not duplicate the
+block.
 
-| Agent | Personal skill | `--configure` instruction |
+| Agent | Personal skill | Instruction added by `--configure` |
 | --- | --- | --- |
 | Claude Code | `~/.claude/skills/vibemin/SKILL.md` | `~/.claude/CLAUDE.md` |
 | Codex | `~/.agents/skills/vibemin/SKILL.md` | `~/.codex/AGENTS.md` |
 | GitHub Copilot | `~/.agents/skills/vibemin/SKILL.md` | `~/.copilot/copilot-instructions.md` |
 | Gemini CLI | `~/.agents/skills/vibemin/SKILL.md` | `~/.gemini/GEMINI.md` |
 
-Codex, Copilot, and Gemini share the open Agent Skills location, so the installer keeps one
-copy rather than three duplicates. Claude uses its own skill directory. An explicit agent
-choice is safe when that host is absent: its files are ready for the next launch.
+Codex, Copilot and Gemini use the same Agent Skills location, so the installer keeps one copy
+for the three hosts. Claude uses its own skill directory. Choosing a host that is not
+installed yet is allowed. The files will be ready when that host starts.
 
 ### Installer modes
 
 | Mode | Result |
 | --- | --- |
-| No arguments | Detect hosts and install their skill; ask which one on an interactive multi-host setup. |
+| No arguments | Detect installed hosts and install their skill. Ask which host to use when several are found in an interactive terminal. |
 | `--everything` | Install and configure every detected host without asking. |
-| `--agent codex` | Install for one named host, even if it is not installed yet. |
-| `--agent codex --configure` | Install one host and add its global feature-completion instruction. |
-| `--agent all --configure` | Preconfigure every supported host. |
-| `--agent standalone` | Install no agent files; use only the CLI. |
+| `--agent codex` | Install for one named host, even when it is not installed yet. |
+| `--agent codex --configure` | Install one host and add its feature completion rule. |
+| `--agent all --configure` | Prepare every supported host. |
+| `--agent standalone` | Install only the CLI. |
 
-Accepted host names are `claude`, `codex`, `copilot`, and `gemini`. The same options work
-with the curl bootstrap and with `scripts/install-user.sh` from a checkout.
+Accepted host names are `claude`, `codex`, `copilot` and `gemini`. The same options work with
+the curl command and with `scripts/install-user.sh` from a checkout.
 
-### Team-shared instructions
+### Share the rule with a team
 
-`--configure` is personal machine setup. To make feature completion a repository policy,
-commit the same rule to the host's project instruction file:
+`--configure` changes the current machine. If every contributor should use Vibemin after a
+feature, commit the same short rule to the repository instruction file for each host you use:
 
 | Agent | Repository instruction file |
 | --- | --- |
@@ -305,13 +350,12 @@ commit the same rule to the host's project instruction file:
 | GitHub Copilot | [`.github/copilot-instructions.md`](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
 | Gemini CLI | [`GEMINI.md`](https://geminicli.com/docs/cli/gemini-md/) |
 
-Keep that rule short: run the Vibemin skill after implementation, use the full feature diff,
-derive checks from the repository, preserve protected files, and review the final result.
-The installed skill owns the detailed procedure so it does not need to live in every prompt.
+The rule only needs to say when Vibemin should run. The installed skill owns the detailed
+procedure, including how to derive checks and protect sensitive files.
 
 ### Install from source
 
-Use a checkout when developing Vibemin itself:
+Use a checkout when you are changing Vibemin itself:
 
 ```sh
 git clone https://github.com/francescoVaglienti/vibemin.git
@@ -319,8 +363,7 @@ cd vibemin
 ./scripts/install-user.sh
 ```
 
-In standalone mode you run `vibemin` directly and supply the checks on the command line;
-there is no model, API key, or agent involved:
+Standalone use has no model or agent involved. Supply the checks on the command line:
 
 ```sh
 vibemin --check "pytest -q" --check "ruff check ."
@@ -336,12 +379,12 @@ uv run --with ruff ruff check .
 uv run --with ruff ruff format --check .
 ```
 
-The suite favors integration evidence over internal implementation tests: it exercises real
-Git repositories, runs release executables end to end, and makes Vibemin minimize its own
-source while its focused test suite acts as the oracle.
+The test suite focuses on integration evidence. It creates real Git repositories, runs the
+release executables and makes Vibemin minimize its own source while a focused test suite acts
+as the oracle.
 
-Source installs target Python 3.10+ and have no runtime dependencies. Release executables
-bundle their own Python runtime.
+Source installs support Python 3.10 and newer and have no runtime dependencies. Release
+executables include their own Python runtime.
 
 ## License
 

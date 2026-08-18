@@ -70,7 +70,7 @@
     <circle cx="22" cy="24" r="5" fill="#FF6B6B"/>
     <circle cx="40" cy="24" r="5" fill="#F5BE4F"/>
     <circle cx="58" cy="24" r="5" fill="#5ECF83"/>
-    <text x="225.5" y="29" text-anchor="middle" fill="#707283" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">feature/payments — vibemin</text>
+    <text x="225.5" y="29" text-anchor="middle" fill="#707283" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">feature/payments · vibemin</text>
 
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
       <text x="22" y="80" fill="#8B7CFF">$</text>

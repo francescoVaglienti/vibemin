@@ -1,6 +1,6 @@
 [project]
 name = "vibemin"
-version = "1.2.0"
+version = "1.2.1"
 description = "Test-guided minimization of AI-generated Git changes"
 readme = "README.md"
 requires-python = ">=3.10"

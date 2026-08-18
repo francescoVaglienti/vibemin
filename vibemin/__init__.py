@@ -3,4 +3,4 @@
 from vibemin.reducer import MinimizeResult, minimize
 
 __all__ = ["MinimizeResult", "minimize"]
-__version__ = "1.2.0"
+__version__ = "1.2.1"
