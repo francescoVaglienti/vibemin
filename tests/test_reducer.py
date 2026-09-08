@@ -57,31 +57,58 @@ def test_failing_original_is_rejected_and_explained(repository: Path) -> None:
     proposed = "def answer():\n    unused = 40\n    return 3\n"
     (repository / "answer.py").write_text(proposed)
 
-    with pytest.raises(VerificationError, match=r"failed: python verify.py(.|\n)*AssertionError"):
+    with pytest.raises(VerificationError) as error:
         minimize(["python verify.py"], root=repository)
 
+    assert "failed: python verify.py" in str(error.value)
+    assert "AssertionError" in str(error.value)
     assert (repository / "answer.py").read_text() == proposed
 
 
-@pytest.mark.parametrize(
-    ("limits", "reason"),
-    [
-        ({"max_attempts": 1}, "attempt limit of 1 reached"),
-        ({"time_budget": 0.01}, "time budget reached after 1 checks"),
-    ],
-)
-def test_search_limits_keep_the_best_verified_candidate(
-    repository: Path, limits: dict[str, float], reason: str
-) -> None:
+def test_attempt_limit_keeps_the_verified_original(repository: Path) -> None:
     proposed = "def answer():\n    noise = 40\n    return 2\n"
     (repository / "answer.py").write_text(proposed)
 
-    result = minimize(["python verify.py"], root=repository, **limits)
+    result = minimize(["python verify.py"], root=repository, max_attempts=1)
 
     assert result.attempts == 1
-    assert result.retained_units == result.original_units
-    assert result.stopped_early == reason
+    assert result.stopped_early == "attempt limit of 1 reached"
     assert (repository / "answer.py").read_text() == proposed
+
+
+def test_time_budget_applies_the_reductions_verified_so_far(
+    repository: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """A run that runs out of time must keep what it proved instead of losing everything."""
+    proposed = (
+        "def answer():\n"
+        "    # Needless AI narration.\n"
+        "    unused = 40\n"
+        "    result = 2\n"
+        "    return result\n"
+    )
+    (repository / "answer.py").write_text(proposed)
+    outside = tmp_path_factory.mktemp("slow-check")
+    stall = outside / "stall.py"
+    stall.write_text(
+        "import pathlib, time\n"
+        f"counter = pathlib.Path({str(outside / 'calls')!r})\n"
+        "calls = int(counter.read_text() or 0) + 1 if counter.exists() else 1\n"
+        "counter.write_text(str(calls))\n"
+        "if calls >= 8:\n"
+        "    time.sleep(1)\n"
+    )
+
+    result = minimize(
+        [f"python {stall} && python verify.py"],
+        root=repository,
+        time_budget=0.5,
+    )
+
+    assert result.stopped_early == "time budget reached after 8 checks"
+    assert result.removed_units == 1
+    assert (repository / "answer.py").read_text() != proposed
+    run(repository, "python", "verify.py")
 
 
 def test_paths_are_relative_to_invocation_directory(repository: Path) -> None:

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import shlex
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -74,6 +76,41 @@ def test_cli_keeps_tests_locks_and_visuals_as_fixed_context(repository: Path) ->
     assert (repository / "tests/test_answer.py").read_text() == "assert True\n"
     assert (repository / "package-lock.json").is_file()
     assert (repository / "screen.css").is_file()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX signal semantics")
+def test_sigterm_leaves_no_sandbox_and_does_not_touch_the_checkout(repository: Path) -> None:
+    proposed = "def answer():\n    noise = 40\n    return 2\n"
+    (repository / "answer.py").write_text(proposed)
+    process = subprocess.Popen(
+        [*vibemin_command(), "--check", python_command("-c", "import time; time.sleep(30)")],
+        cwd=repository,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    def worktrees() -> list[str]:
+        output = run(repository, "git", "worktree", "list", "--porcelain").stdout
+        return [
+            line.removeprefix("worktree ")
+            for line in output.splitlines()
+            if line.startswith("worktree ")
+        ]
+
+    deadline = time.monotonic() + 10
+    while len(worktrees()) < 2 and time.monotonic() < deadline:
+        time.sleep(0.1)
+    sandboxes = [path for path in worktrees() if path != str(repository)]
+    assert len(sandboxes) == 1
+    process.send_signal(signal.SIGTERM)
+    _stdout, stderr = process.communicate(timeout=10)
+
+    assert process.returncode == 130
+    assert "interrupted" in stderr
+    assert (repository / "answer.py").read_text() == proposed
+    assert worktrees() == [str(repository)]
+    assert not Path(sandboxes[0]).exists()
 
 
 @pytest.mark.selfhost
