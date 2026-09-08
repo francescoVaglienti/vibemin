@@ -178,7 +178,9 @@ repository.
 4. Verify each candidate:
    Tests, linters, type checks and output contracts decide what survives.
 5. Apply once:
-   Only the final verified patch is written to the real checkout.
+   Only the final verified patch is written to the real checkout. If `--time-budget` or
+   `--max-attempts` stops the search first, the best verified candidate is applied and the
+   summary says the result is not proven minimal.
 
 The result is one minimal under the checks you supplied. Vibemin has shown that no individual
 unit can be removed while those checks still pass. It does not claim that the implementation
@@ -287,6 +289,7 @@ vibemin --dry-run \
 | `--base REF` | Use an exact baseline instead of `HEAD`. |
 | `--max-attempts N` | Limit candidate checks. The default is 500. |
 | `--timeout SECONDS` | Limit each command. The default is 300 seconds. |
+| `--time-budget SECONDS` | Stop searching after this long and keep the best verified candidate. |
 | `--dry-run` | Find the result without changing the checkout. |
 | `--verbose` | Show output from failed candidate checks. |
 

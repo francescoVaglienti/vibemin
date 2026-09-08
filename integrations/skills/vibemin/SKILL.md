@@ -18,7 +18,10 @@ for compressed syntax or line count alone.
    caching, input limits, logging, and dependencies. Add the resulting focused integration
    checks before minimization.
 4. Identify the narrowest focused test plus the repository's non-mutating lint, format-check,
-   strict typecheck, and security commands.
+   strict typecheck, and security commands. Checks run in a disposable worktree where ignored
+   files such as `.venv` and `node_modules` are absent, so reference tools by absolute path.
+   When one check takes more than a few seconds, add `--time-budget SECONDS` so the run ends
+   on time with the best verified candidate instead of being killed with nothing.
 5. Leave tests, manifests/lockfiles, and visual files protected. Validate lock consistency and
    clean installation once with `--final-check`; do not spend every candidate on unchanged
    generated files.

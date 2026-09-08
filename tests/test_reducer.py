@@ -53,13 +53,34 @@ def test_dry_run_does_not_touch_checkout(repository: Path) -> None:
     assert (repository / "answer.py").read_text() == proposed
 
 
-def test_failing_original_is_rejected_without_touching_checkout(repository: Path) -> None:
+def test_failing_original_is_rejected_and_explained(repository: Path) -> None:
     proposed = "def answer():\n    unused = 40\n    return 3\n"
     (repository / "answer.py").write_text(proposed)
 
-    with pytest.raises(VerificationError):
+    with pytest.raises(VerificationError, match=r"failed: python verify.py(.|\n)*AssertionError"):
         minimize(["python verify.py"], root=repository)
 
+    assert (repository / "answer.py").read_text() == proposed
+
+
+@pytest.mark.parametrize(
+    ("limits", "reason"),
+    [
+        ({"max_attempts": 1}, "attempt limit of 1 reached"),
+        ({"time_budget": 0.01}, "time budget reached after 1 checks"),
+    ],
+)
+def test_search_limits_keep_the_best_verified_candidate(
+    repository: Path, limits: dict[str, float], reason: str
+) -> None:
+    proposed = "def answer():\n    noise = 40\n    return 2\n"
+    (repository / "answer.py").write_text(proposed)
+
+    result = minimize(["python verify.py"], root=repository, **limits)
+
+    assert result.attempts == 1
+    assert result.retained_units == result.original_units
+    assert result.stopped_early == reason
     assert (repository / "answer.py").read_text() == proposed
 
 

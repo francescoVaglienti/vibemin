@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 from pathlib import Path
 
@@ -107,6 +108,13 @@ def _parser() -> argparse.ArgumentParser:
         "--max-attempts", type=int, default=500, help="maximum candidate checks (default: 500)"
     )
     parser.add_argument(
+        "--time-budget",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="stop searching after this long and finish with the best verified candidate",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="find the minimum but do not change the checkout"
     )
     parser.add_argument("--verbose", action="store_true", help="show failed-command output")
@@ -127,8 +135,13 @@ def _reporter(verbose: bool):
     return report
 
 
+def _raise_interrupt(signum: int, frame: object) -> None:
+    raise KeyboardInterrupt
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    signal.signal(signal.SIGTERM, _raise_interrupt)
     try:
         result = minimize(
             args.check,
@@ -146,18 +159,31 @@ def main(argv: list[str] | None = None) -> int:
             allow_untyped_typescript=args.allow_untyped_typescript,
             timeout=args.timeout,
             max_attempts=args.max_attempts,
+            time_budget=args.time_budget,
             apply=not args.dry_run,
             progress=_reporter(args.verbose),
         )
     except (GitError, VerificationError, ValueError) as error:
         print(f"vibemin: error: {error}", file=sys.stderr)
         return 2
+    except KeyboardInterrupt:
+        print(
+            "vibemin: interrupted; the checkout was not changed. "
+            "Use --time-budget to stop on time with a verified partial result.",
+            file=sys.stderr,
+        )
+        return 130
 
     action = "Would remove" if args.dry_run else "Removed"
     print(
         f"{action} {result.removed_units} of {result.original_units} diff units "
         f"in {result.attempts} checks; {result.retained_units} remain."
     )
+    if result.stopped_early:
+        print(
+            f"Search stopped early: {result.stopped_early}; "
+            "the result is verified but not proven minimal."
+        )
     if result.changed_files:
         print("Files simplified:")
         for path in result.changed_files:

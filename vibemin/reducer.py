@@ -55,6 +55,7 @@ class MinimizeResult:
     applied: bool
     changed_files: tuple[Path, ...]
     protected_files: tuple[tuple[Path, ProtectedKind], ...] = ()
+    stopped_early: str | None = None
 
     @property
     def removed_units(self) -> int:
@@ -158,20 +159,27 @@ def _reduce(
     preserve_commands: tuple[str, ...],
     timeout: float,
     max_attempts: int,
+    deadline: float | None,
     progress: ProgressCallback | None,
-) -> tuple[set[int], int]:
+) -> tuple[set[int], int, str | None]:
     selected = set(initial)
     cache: dict[frozenset[int], bool] = {}
     attempts = 0
     preserved_outputs: tuple[str, ...] | None = None
+    last_failure = ""
+
+    def stop_reason() -> str | None:
+        if attempts >= max_attempts:
+            return f"attempt limit of {max_attempts} reached"
+        if deadline is not None and time.monotonic() >= deadline:
+            return f"time budget reached after {attempts} checks"
+        return None
 
     def verify(candidate: set[int]) -> bool:
-        nonlocal attempts, preserved_outputs
+        nonlocal attempts, preserved_outputs, last_failure
         key = frozenset(candidate)
         if key in cache:
             return cache[key]
-        if attempts >= max_attempts:
-            return False
         _materialize(sandbox, changes, candidate)
         expected_snapshots = {change.path: change.render(candidate) for change in changes}
         started = time.monotonic()
@@ -203,6 +211,8 @@ def _reduce(
             )
         attempts += 1
         cache[key] = passed
+        if not passed:
+            last_failure = f"failed: {failed_command}\n{output}".rstrip()
         if progress:
             progress(
                 Attempt(
@@ -217,10 +227,16 @@ def _reduce(
         return passed
 
     if not verify(selected):
-        raise VerificationError("the original changes do not pass all verification commands")
+        raise VerificationError(
+            "the original changes do not pass all verification commands\n"
+            f"{last_failure}\n"
+            f"checks run inside a disposable worktree ({sandbox}); ignored files such as "
+            ".venv or node_modules are not there, so reference tools by absolute path"
+        )
 
     granularity = 2
-    while selected and attempts < max_attempts:
+    stopped = None
+    while selected and (stopped := stop_reason()) is None:
         ordered = sorted(selected)
         reduced = False
         for chunk in _chunks(ordered, granularity):
@@ -230,7 +246,7 @@ def _reduce(
                 granularity = max(2, granularity - 1)
                 reduced = True
                 break
-            if attempts >= max_attempts:
+            if stop_reason():
                 break
         if reduced:
             continue
@@ -239,7 +255,7 @@ def _reduce(
         granularity = min(len(selected), granularity * 2)
 
     _materialize(sandbox, changes, selected)
-    return selected, attempts
+    return selected, attempts, stopped
 
 
 def _assert_original_unchanged(root: Path, changes: Iterable[FileChange]) -> None:
@@ -270,10 +286,15 @@ def minimize(
     allow_untyped_typescript: bool = False,
     timeout: float = 300,
     max_attempts: int = 500,
+    time_budget: float | None = None,
     apply: bool = True,
     progress: ProgressCallback | None = None,
 ) -> MinimizeResult:
-    """Minimize current changes while every verification command remains green."""
+    """Minimize current changes while every verification command remains green.
+
+    The original changes are always verified. When ``max_attempts`` or ``time_budget`` stops
+    the search early, the best candidate verified so far is returned and reported as such.
+    """
     commands_tuple = tuple(commands)
     preserve_commands = tuple(preserve_outputs)
     final_commands = tuple(final_checks)
@@ -286,6 +307,9 @@ def minimize(
         raise ValueError("timeout must be greater than zero")
     if max_attempts <= 0:
         raise ValueError("max_attempts must be greater than zero")
+    if time_budget is not None and time_budget <= 0:
+        raise ValueError("time_budget must be greater than zero")
+    deadline = None if time_budget is None else time.monotonic() + time_budget
     invocation_root = (root or Path.cwd()).resolve()
     repo_root = find_root(invocation_root)
     assert_no_staged_changes(repo_root)
@@ -365,7 +389,7 @@ def minimize(
 
     with Worktree(repo_root, base_commit) as sandbox:
         _materialize(sandbox, changes, all_units)
-        selected, attempts = _reduce(
+        selected, attempts, stopped_early = _reduce(
             sandbox,
             changes,
             all_units,
@@ -373,6 +397,7 @@ def minimize(
             preserve_commands,
             timeout,
             max_attempts,
+            deadline,
             progress,
         )
         if final_commands:
@@ -407,4 +432,5 @@ def minimize(
         applied=apply,
         changed_files=changed_files,
         protected_files=protected_files,
+        stopped_early=stopped_early,
     )
