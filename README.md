@@ -207,6 +207,14 @@ with its manifest. Vibemin reports protected files as fixed context so the reaso
 
 ## Recipes
 
+### Clean up structure before reducing
+
+Vibemin removes lines; it does not restructure code. Before a run, collapse single-implementation
+abstractions, build shared clients once instead of on every call, delete pass-through parameters
+that only thread an object around, fail fast on required configuration and strip comments that
+restate names. The agent skill in `integrations/skills/vibemin/SKILL.md` lists these steps, so an
+agent does them first and Vibemin then minimizes what is left.
+
 ### Reduce current uncommitted changes
 
 Without `--base` or `--feature-base`, Vibemin compares the working tree with `HEAD`. Path

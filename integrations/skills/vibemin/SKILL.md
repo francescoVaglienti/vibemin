@@ -48,6 +48,30 @@ before amending or squashing the feature.
 
 Never claim global minimality. Report the removed and retained diff units and the checks used.
 
+## Clean up structure first
+
+`vibemin` only deletes lines that are already in the diff. The structural cleanups a human
+reviewer typically makes after an AI-written feature need a rewrite, so do them by hand over
+every file the feature touched, before the reduction run:
+
+- Collapse an abstract base class, interface or protocol that has exactly one implementation
+  into the concrete class.
+- Replace a helper that rebuilds the same client, connection or handle on every call with one
+  attribute built once in the constructor.
+- Delete optional pass-through parameters whose only job is to thread that same object from
+  one method to the next (`client=None` followed by `if client is None: client = self.get()`).
+- Make required configuration fail fast at startup (`os.environ[...]` or the project's
+  require-env helper) instead of reading an optional value and failing later on `None`.
+- Inline attributes that hold a configuration value used in one place.
+- Remove docstrings, parameter blocks and comments that restate names. Keep a line only when it
+  states a contract the code cannot show, such as what a `None` return means or what errors
+  propagate.
+- Drop the imports and test lines these removals orphan.
+- Leave no scaffolding in the branch you push: planning notes, probe scripts, debug logging and
+  commented-out code go.
+
+Rerun the full relevant suite after these edits, then run `vibemin` on the result.
+
 ## Refactor an existing test suite
 
 First propose structure; `vibemin` only removes lines already present in the diff.
