@@ -59,6 +59,23 @@ def test_cli_minimizes_a_real_repository(repository: Path) -> None:
     run(repository, sys.executable, "verify.py")
 
 
+def test_a_renamed_file_leaves_its_old_path_in_no_candidate(repository: Path) -> None:
+    kept = "".join(f"CONSTANT_{index} = {index}\n" for index in range(20))
+    (repository / "answer.py").write_text(kept + "def answer():\n    return 1\n")
+    (repository / "verify.py").write_text(
+        "import os\nfrom solution import answer\nassert not os.path.exists('answer.py')\nassert answer() == 2\n"
+    )
+    run(repository, "git", "commit", "--quiet", "-am", "grow")
+    run(repository, "git", "mv", "answer.py", "solution.py")
+    (repository / "solution.py").write_text(kept + "def answer():\n    unused = 40\n    return 2\n")
+    run(repository, "git", "commit", "--quiet", "-am", "feature")
+
+    invoke_vibemin(repository, "--feature-base", "HEAD~1", "--check", python_command("verify.py"))
+
+    assert "unused" not in (repository / "solution.py").read_text()
+    assert not (repository / "answer.py").exists()
+
+
 def test_cli_keeps_tests_locks_and_visuals_as_fixed_context(repository: Path) -> None:
     (repository / "answer.py").write_text("def answer():\n    noise = 9\n    return 2\n")
     (repository / "tests").mkdir()

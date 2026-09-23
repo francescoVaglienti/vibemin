@@ -62,7 +62,7 @@ def _nul_paths(output: bytes) -> list[Path]:
 
 def changed_paths(root: Path, base: str) -> list[Path]:
     tracked = _nul_paths(
-        _run(root, "diff", "--name-only", "-z", "--diff-filter=ACDMRTUXB", base, "--").stdout
+        _run(root, "diff", "--name-only", "--no-renames", "-z", base, "--").stdout
     )
     untracked = _nul_paths(_run(root, "ls-files", "--others", "--exclude-standard", "-z").stdout)
     return sorted(set(tracked + untracked), key=lambda path: os.fsencode(path))
