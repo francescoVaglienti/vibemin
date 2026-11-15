@@ -63,7 +63,8 @@ def test_a_renamed_file_leaves_its_old_path_in_no_candidate(repository: Path) ->
     kept = "".join(f"CONSTANT_{index} = {index}\n" for index in range(20))
     (repository / "answer.py").write_text(kept + "def answer():\n    return 1\n")
     (repository / "verify.py").write_text(
-        "import os\nfrom solution import answer\nassert not os.path.exists('answer.py')\nassert answer() == 2\n"
+        "import os\nfrom solution import answer\n"
+        "assert not os.path.exists('answer.py')\nassert answer() == 2\n"
     )
     run(repository, "git", "commit", "--quiet", "-am", "grow")
     run(repository, "git", "mv", "answer.py", "solution.py")
@@ -93,6 +94,45 @@ def test_cli_keeps_tests_locks_and_visuals_as_fixed_context(repository: Path) ->
     assert (repository / "tests/test_answer.py").read_text() == "assert True\n"
     assert (repository / "package-lock.json").is_file()
     assert (repository / "screen.css").is_file()
+
+
+def test_equal_sized_candidates_with_one_timestamp_are_not_judged_by_stale_bytecode(
+    repository: Path,
+) -> None:
+    proposed = "def answer():\n    return 2\n"
+    (repository / "answer.py").write_text(proposed)
+    (repository / "noise.py").write_text("NOISE = 9\n")
+    same_second = "import os; os.utime('answer.py', (1_000_000_000, 1_000_000_000)); import verify"
+
+    invoke_vibemin(repository, "--check", python_command("-c", same_second))
+
+    assert (repository / "answer.py").read_text() == proposed
+    assert not (repository / "noise.py").exists()
+
+
+def test_security_check_is_required_by_the_changed_lines_not_the_whole_file(
+    repository: Path,
+) -> None:
+    collector = repository / "collector.py"
+    sources = "".join(f"SOURCE_{index} = {index}\n" for index in range(10))
+    collector.write_text("PASSWORD_PROTECTED = 'skipped'\n" + sources)
+    run(repository, "git", "add", ".")
+    run(repository, "git", "commit", "--quiet", "-m", "collector")
+    check = python_command("-c", "import collector, verify")
+
+    (repository / "answer.py").write_text("def answer():\n    return 2\n")
+    collector.write_text(collector.read_text() + "NOISE = 9\n")
+    invoke_vibemin(repository, "--check", check)
+
+    assert collector.read_text().endswith(sources)
+
+    collector.write_text(sources)
+    refused = subprocess.run(
+        [*vibemin_command(), "--check", check], cwd=repository, capture_output=True, text=True
+    )
+
+    assert refused.returncode == 2
+    assert "security-sensitive changes require --security-check: collector.py" in refused.stderr
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX signal semantics")
