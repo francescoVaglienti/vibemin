@@ -65,10 +65,17 @@ class MinimizeResult:
 ProgressCallback = Callable[[Attempt], None]
 
 
+_NO_STALE_BYTECODE_BETWEEN_CANDIDATES = {"PYTHONDONTWRITEBYTECODE": "1"}
+
+
 def _shell_argv(command: str) -> list[str]:
     if os.name == "nt":
         return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", command]
     return ["/bin/sh", "-c", command]
+
+
+def _check_environment(root: Path) -> dict[str, str]:
+    return {**os.environ, "VIBEMIN_ROOT": str(root), **_NO_STALE_BYTECODE_BETWEEN_CANDIDATES}
 
 
 def _materialize(root: Path, changes: Iterable[FileChange], selected: set[int]) -> None:
@@ -79,8 +86,7 @@ def _materialize(root: Path, changes: Iterable[FileChange], selected: set[int]) 
 def _run_checks(
     root: Path, commands: tuple[str, ...], timeout: float
 ) -> tuple[bool, str | None, str]:
-    environment = os.environ.copy()
-    environment["VIBEMIN_ROOT"] = str(root)
+    environment = _check_environment(root)
     for command in commands:
         try:
             process = subprocess.run(
@@ -107,8 +113,7 @@ def _capture_preserved_outputs(
     root: Path, commands: tuple[str, ...], timeout: float
 ) -> tuple[bool, str | None, str, tuple[str, ...]]:
     outputs: list[str] = []
-    environment = os.environ.copy()
-    environment["VIBEMIN_ROOT"] = str(root)
+    environment = _check_environment(root)
     for command in commands:
         try:
             process = subprocess.run(

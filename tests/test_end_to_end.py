@@ -96,6 +96,20 @@ def test_cli_keeps_tests_locks_and_visuals_as_fixed_context(repository: Path) ->
     assert (repository / "screen.css").is_file()
 
 
+def test_equal_sized_candidates_with_one_timestamp_are_not_judged_by_stale_bytecode(
+    repository: Path,
+) -> None:
+    proposed = "def answer():\n    return 2\n"
+    (repository / "answer.py").write_text(proposed)
+    (repository / "noise.py").write_text("NOISE = 9\n")
+    same_second = "import os; os.utime('answer.py', (1_000_000_000, 1_000_000_000)); import verify"
+
+    invoke_vibemin(repository, "--check", python_command("-c", same_second))
+
+    assert (repository / "answer.py").read_text() == proposed
+    assert not (repository / "noise.py").exists()
+
+
 def test_security_check_is_required_by_the_changed_lines_not_the_whole_file(
     repository: Path,
 ) -> None:
