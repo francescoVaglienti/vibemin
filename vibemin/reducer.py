@@ -379,7 +379,7 @@ def minimize(
     sensitive = [
         change.path
         for change in changes
-        if change.units and is_security_sensitive(change.path, change.after.content)
+        if change.units and is_security_sensitive(change.path, change.changed_text())
     ]
     if sensitive and not security_commands:
         raise ValueError(

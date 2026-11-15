@@ -114,6 +114,17 @@ class FileChange:
     def _comparison_line(line: bytes) -> bytes:
         return line[:-2] + b"\n" if line.endswith(b"\r\n") else line
 
+    def changed_text(self, context: int = 3) -> bytes:
+        if not self._pieces:
+            return (self.before.content or b"") + (self.after.content or b"")
+        near = {
+            neighbour
+            for index, piece in enumerate(self._pieces)
+            if piece.unit_id is not None
+            for neighbour in range(index - context, index + context + 1)
+        }
+        return b"".join(piece.content for index, piece in enumerate(self._pieces) if index in near)
+
     def render(self, selected: set[int]) -> Snapshot:
         """Render the file for the supplied set of retained change units."""
         if not self.reducible:

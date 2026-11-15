@@ -198,7 +198,7 @@ the parts that are easy to game fixed by default.
 | Dependency manifests and lockfiles | Protected | `--allow-dependency-changes` plus `--dependency-check` |
 | Styles, fonts, icons and images | Protected | `--allow-visual-changes` plus deterministic `--preserve-output` |
 | TypeScript | Typecheck required | `--allow-untyped-typescript` |
-| Auth, tenant, token, session and secret code | Security check required | `--security-check` |
+| Changed lines in or next to auth, tenant, token, session and secret code | Security check required | `--security-check` |
 | Expensive broad validation | Run once on the winner | `--final-check` |
 
 These defaults stop misleading wins such as deleting assertions until the suite passes,
